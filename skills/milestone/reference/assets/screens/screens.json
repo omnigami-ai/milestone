@@ -1,0 +1,351 @@
+{
+ "url": "http://localhost:4413/fernwise/app/#/plant/monty",
+ "viewport": [
+  390,
+  844
+ ],
+ "captures": {
+  "plant-000": {
+   "file": "plant-000@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-005": {
+   "file": "plant-005@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-010": {
+   "file": "plant-010@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-015": {
+   "file": "plant-015@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-020": {
+   "file": "plant-020@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-025": {
+   "file": "plant-025@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-030": {
+   "file": "plant-030@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-035": {
+   "file": "plant-035@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-040": {
+   "file": "plant-040@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-045": {
+   "file": "plant-045@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-050": {
+   "file": "plant-050@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-055": {
+   "file": "plant-055@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-060": {
+   "file": "plant-060@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-065": {
+   "file": "plant-065@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-070": {
+   "file": "plant-070@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-075": {
+   "file": "plant-075@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-080": {
+   "file": "plant-080@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-085": {
+   "file": "plant-085@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-090": {
+   "file": "plant-090@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-095": {
+   "file": "plant-095@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "plant-100": {
+   "file": "plant-100@4.webp",
+   "scale": 4,
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ]
+  },
+  "portrait-monty": {
+   "file": "portrait-monty@4.webp",
+   "scale": 4,
+   "rect": [
+    83,
+    87,
+    224,
+    224
+   ]
+  },
+  "portrait-pickles": {
+   "file": "portrait-pickles@4.webp",
+   "scale": 4,
+   "rect": [
+    83,
+    87,
+    224,
+    224
+   ]
+  },
+  "portrait-fernando": {
+   "file": "portrait-fernando@4.webp",
+   "scale": 4,
+   "rect": [
+    83,
+    87,
+    224,
+    224
+   ]
+  },
+  "portrait-olive": {
+   "file": "portrait-olive@4.webp",
+   "scale": 4,
+   "rect": [
+    83,
+    87,
+    224,
+    224
+   ]
+  },
+  "portrait-spike": {
+   "file": "portrait-spike@4.webp",
+   "scale": 4,
+   "rect": [
+    83,
+    87,
+    224,
+    224
+   ]
+  },
+  "portrait-basil": {
+   "file": "portrait-basil@4.webp",
+   "scale": 4,
+   "rect": [
+    83,
+    87,
+    224,
+    224
+   ]
+  },
+  "portrait-dot": {
+   "file": "portrait-dot@4.webp",
+   "scale": 4,
+   "rect": [
+    83,
+    87,
+    224,
+    224
+   ]
+  }
+ },
+ "rects": {
+  "plant": {
+   "page": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "portrait": [
+    89,
+    93,
+    212,
+    212
+   ],
+   "water": [
+    20,
+    596,
+    350,
+    52
+   ],
+   "status": [
+    20,
+    390,
+    350,
+    19
+   ],
+   "name": [
+    20,
+    319,
+    350,
+    38
+   ]
+  },
+  "watered": {
+   "page": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "portrait": [
+    89,
+    93,
+    212,
+    212
+   ],
+   "water": null,
+   "status": [
+    20,
+    390,
+    350,
+    19
+   ],
+   "name": [
+    20,
+    319,
+    350,
+    38
+   ]
+  }
+ },
+ "typed": {}
+}

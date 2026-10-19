@@ -1,0 +1,430 @@
+{
+ "url": "http://localhost:4413/fernwise/app/#/plant/monty",
+ "viewport": "mobile",
+ "ready": "body",
+ "rects": {
+  "portrait": ".hero .portrait",
+  "water": "[data-action=\"water\"]",
+  "status": "[data-status]",
+  "name": "[data-plant-name]"
+ },
+ "steps": [
+  {
+   "eval": "location.hash = '#/plant/monty'"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "document.querySelector('#screen').scrollTop = 0"
+  },
+  {
+   "rects": "plant"
+  },
+  {
+   "capture": "plant-000",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '95.0'); c.style.stroke = col(0.050);  })()"
+  },
+  {
+   "capture": "plant-005",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '90.0'); c.style.stroke = col(0.100);  })()"
+  },
+  {
+   "capture": "plant-010",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '85.0'); c.style.stroke = col(0.150);  })()"
+  },
+  {
+   "capture": "plant-015",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '80.0'); c.style.stroke = col(0.200);  })()"
+  },
+  {
+   "capture": "plant-020",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '75.0'); c.style.stroke = col(0.250);  })()"
+  },
+  {
+   "capture": "plant-025",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '70.0'); c.style.stroke = col(0.300);  })()"
+  },
+  {
+   "capture": "plant-030",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '65.0'); c.style.stroke = col(0.350);  })()"
+  },
+  {
+   "capture": "plant-035",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '60.0'); c.style.stroke = col(0.400);  })()"
+  },
+  {
+   "capture": "plant-040",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '55.0'); c.style.stroke = col(0.450);  })()"
+  },
+  {
+   "capture": "plant-045",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '50.0'); c.style.stroke = col(0.500);  })()"
+  },
+  {
+   "capture": "plant-050",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '45.0'); c.style.stroke = col(0.550);  })()"
+  },
+  {
+   "capture": "plant-055",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '40.0'); c.style.stroke = col(0.600);  })()"
+  },
+  {
+   "capture": "plant-060",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '35.0'); c.style.stroke = col(0.650);  })()"
+  },
+  {
+   "capture": "plant-065",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '30.0'); c.style.stroke = col(0.700);  })()"
+  },
+  {
+   "capture": "plant-070",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '25.0'); c.style.stroke = col(0.750);  })()"
+  },
+  {
+   "capture": "plant-075",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '20.0'); c.style.stroke = col(0.800);  })()"
+  },
+  {
+   "capture": "plant-080",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '15.0'); c.style.stroke = col(0.850);  })()"
+  },
+  {
+   "capture": "plant-085",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '10.0'); c.style.stroke = col(0.900);  })()"
+  },
+  {
+   "capture": "plant-090",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '5.0'); c.style.stroke = col(0.950);  })()"
+  },
+  {
+   "capture": "plant-095",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "click": "[data-action=\"water\"]"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "(() => { const c = document.querySelector('.hero .ring-fill'); c.style.transition = 'none'; })()"
+  },
+  {
+   "rects": "watered"
+  },
+  {
+   "capture": "plant-100",
+   "rect": [
+    0,
+    0,
+    390,
+    844
+   ],
+   "scale": 4
+  },
+  {
+   "eval": "location.hash = '#/plant/monty'"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "document.querySelector('#screen').scrollTop = 0"
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '0.0'); c.style.stroke = col(1.000); p.classList.remove('is-due'); })()"
+  },
+  {
+   "capture": "portrait-monty",
+   "around": ".hero .portrait",
+   "pad": 6,
+   "scale": 4
+  },
+  {
+   "eval": "location.hash = '#/plant/pickles'"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "document.querySelector('#screen').scrollTop = 0"
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '0.0'); c.style.stroke = col(1.000); p.classList.remove('is-due'); })()"
+  },
+  {
+   "capture": "portrait-pickles",
+   "around": ".hero .portrait",
+   "pad": 6,
+   "scale": 4
+  },
+  {
+   "eval": "location.hash = '#/plant/fernando'"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "document.querySelector('#screen').scrollTop = 0"
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '0.0'); c.style.stroke = col(1.000); p.classList.remove('is-due'); })()"
+  },
+  {
+   "capture": "portrait-fernando",
+   "around": ".hero .portrait",
+   "pad": 6,
+   "scale": 4
+  },
+  {
+   "eval": "location.hash = '#/plant/olive'"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "document.querySelector('#screen').scrollTop = 0"
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '0.0'); c.style.stroke = col(1.000); p.classList.remove('is-due'); })()"
+  },
+  {
+   "capture": "portrait-olive",
+   "around": ".hero .portrait",
+   "pad": 6,
+   "scale": 4
+  },
+  {
+   "eval": "location.hash = '#/plant/spike'"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "document.querySelector('#screen').scrollTop = 0"
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '0.0'); c.style.stroke = col(1.000); p.classList.remove('is-due'); })()"
+  },
+  {
+   "capture": "portrait-spike",
+   "around": ".hero .portrait",
+   "pad": 6,
+   "scale": 4
+  },
+  {
+   "eval": "location.hash = '#/plant/basil'"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "document.querySelector('#screen').scrollTop = 0"
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '0.0'); c.style.stroke = col(1.000); p.classList.remove('is-due'); })()"
+  },
+  {
+   "capture": "portrait-basil",
+   "around": ".hero .portrait",
+   "pad": 6,
+   "scale": 4
+  },
+  {
+   "eval": "location.hash = '#/plant/dot'"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "document.querySelector('#screen').scrollTop = 0"
+  },
+  {
+   "eval": "(() => { const S=[[0,[217,115,78]],[0.3,[208,150,70]],[0.55,[120,152,72]],[1,[62,107,58]]]; const col=(l)=>{for(let i=1;i<S.length;i++){if(l<=S[i][0]){const [a,ca]=S[i-1],[b,cb]=S[i],t=(l-a)/(b-a);return 'rgb('+ca.map((v,k)=>Math.round(v+(cb[k]-v)*t)).join(',')+')';}}return 'rgb(62,107,58)';}; const p = document.querySelector('.hero .portrait'), c = p.querySelector('.ring-fill'); c.style.transition = 'none'; c.setAttribute('stroke-dashoffset', '0.0'); c.style.stroke = col(1.000); p.classList.remove('is-due'); })()"
+  },
+  {
+   "capture": "portrait-dot",
+   "around": ".hero .portrait",
+   "pad": 6,
+   "scale": 4
+  }
+ ]
+}
