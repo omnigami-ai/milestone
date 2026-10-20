@@ -277,7 +277,7 @@
     swish(T.close[0], 'camera', 0.6, 0.3); pop(T.mark, 0.45); pop(T.word, 0.4); pop(T.tagline, 0.34);
     return out.sort((a, b) => a.t - b.t);
   }
-  const music = {
+  const music = { style: 'organic', // the played sound (plucked strings, marimba, shaker) for a plants or botanicals brand
     bpm: 120, duration: DURATION, root: 50,
     chords: [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]],
     sections: [{ from: 0, to: 1, pad: 0.7, hats: 0.3 }, { from: 1, to: 2, pad: 0.6, hats: 0.45, bass: 0.4 }, { from: 2, to: 5, kick: 0.75, hats: 0.6, bass: 0.65, pad: 0.55 }, { from: 5, to: 7, pad: 0.7, hats: 0.3 }],

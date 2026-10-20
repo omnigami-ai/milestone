@@ -46,6 +46,8 @@ quickening with the counter, a stronger `pop` as it lands. No impacts or
 risers. A 120 BPM bed: quiet, the beat in from the action to the number,
 pads for the thanks and the end card. About −14 LUFS.
 
+The score's sound is `music.style`: here `'organic'` (plucked strings, a marimba, a shaker), as the reference's plants or botanicals brand has it. For the user's product, pick by what it is: `'organic'` for plants, food and drink, and other natural or handmade things; `'synth'` (oscillators, the default) for software and tools; `'felt'` (a sparse felt piano over a sub bass and a light kit) for a quiet, minimal film. In a break (`music.breaks`) the drums, bass and lead stop and the chords play on; the film's name seeds the key (always major), the progressions and the patterns.
+
 ## Banned
 
 An invented or rounded-up number; a field made of anything but the product's
