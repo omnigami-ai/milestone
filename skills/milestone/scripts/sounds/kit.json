@@ -96,5 +96,32 @@
     "lead": 0.0,
     "duration": 0.48,
     "about": "A low, cushioned settle for a landing; audible body without a long sub drop."
+  },
+  "pluck": {
+    "files": [
+      "pluck-1.wav",
+      "pluck-2.wav",
+      "pluck-3.wav",
+      "pluck-4.wav"
+    ],
+    "lead": 0.0,
+    "duration": 0.27,
+    "about": "A soft, rounded pitched pluck for a word or a small thing landing; four notes in turn."
+  },
+  "blip": {
+    "files": [
+      "blip.wav"
+    ],
+    "lead": 0.0,
+    "duration": 0.2,
+    "about": "A bubbly, rounded arrival: one short note that bends up a fifth as it lands; no droplet ring."
+  },
+  "zip": {
+    "files": [
+      "zip.wav"
+    ],
+    "lead": 0.1429,
+    "duration": 0.4,
+    "about": "A light rising glide that crests on the cue, for a pill or a doorway sweeping open; no riser."
   }
 }

@@ -2,7 +2,7 @@
 
 One tap, a million times. Celebrate the number.
 
-A 14-second milestone film on your real screens. The one action your number counts, done once on your product, then its result lifts out of the app and multiplies into thousands as a counter rolls to your milestone. A thank-you, and the field closes into your app’s icon.
+A 16-second milestone film on your real screens. The one action your number counts, done once on your product, then its result lifts out of the app and multiplies into thousands as a counter rolls to your milestone. A thank-you, and the field closes into your app’s icon.
 
 Watch it play live, and change its words, at [omnigami.ai/skills/milestone](https://omnigami.ai/skills/milestone).
 

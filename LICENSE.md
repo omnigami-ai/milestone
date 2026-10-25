@@ -15,6 +15,23 @@ granted below.
   of them, in whole or in part, outside the forking that GitHub's terms of
   service allow on GitHub itself.
 
+## The music
+
+Each skill's `music/` folder holds a song made for omnigami with AI, and its
+stems.
+
+- You may use it in the films you make with the skill, for any purpose and on
+  any platform, commercial work included, with no credit required; and cut,
+  edit or remix it within those films.
+- You may not distribute or sell the song or its stems on their own (as a
+  track, in a music library, or on streaming services), or register it with a
+  content-identification service such as YouTube Content ID.
+- It's AI-made and carries a watermark saying so. Nobody owns it exclusively,
+  so others may use the same or similar music. If a platform flags or claims a
+  film because of its song, tell us at hello@omnigami.ai and we'll replace it;
+  meanwhile you can render with another section of the song, the skill's
+  synthesised score, or a song of your own.
+
 ## Other parts
 
 The fonts in each skill's `reference/assets/fonts/` folder are under the SIL

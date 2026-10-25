@@ -9,6 +9,7 @@
 //     bpmRange: [lo, hi]  optional: the seed picks the tempo in it (only for films not cut to a fixed grid),
 //     palette: { lead, pad }  optional: fix the lead (bell, pluck, square, mallet) or pad (saw, pulse, glass),
 //     harmony: 'film'  optional: play the film's own `root` and `chords` instead of a seeded progression,
+//     progression: n  optional: use PROGRESSIONS[n] instead of the seed's (e.g. 7, 'vi V IV V', for a moodier major song),
 //     ending: { at (s), chord: [semitones] }  optional: where the landing hit falls, and its chord }
 // and render.mjs --music turns it into audio. Same film, same samples, every time: choices come from a seeded
 // generator, noise is a hash of the sample index, every voice is closed-form or a filter run in order, and
@@ -41,7 +42,7 @@
 //   song, the bar-by-bar plan, loudness); compose(score, { stems: true }) also returns .stems
 //   { drums, bass, chords, lead, room } as [L, R]; songOf(score) → the song alone
 //   wav(buf) → a 16-bit WAV, stereo when buf has .left/.right
-import { writeFileSync, readFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const SR = 48000;
@@ -51,8 +52,35 @@ const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
 // loudness pass (−2.5 dBTP) stays linear; the limiter may take up to 8 dB off the loudest peak (about what the
 // songs' own masters take off theirs), and a sparse score that would need more is left quieter, not squashed
 // the organic and felt buses, set against the synth's stem balance (score-study.md)
-const STYLE_GAIN = { organic: { chords: 1.13, lead: 0.22 }, felt: { chords: 0.95, lead: 0.5 } };
+const STYLE_GAIN = { organic: { chords: 1.13, lead: 0.22 }, felt: { chords: 0.95, lead: 0.5 }, studio: { clap: 2.2, hats: 0.5, chords: 1.6, pad: 2.4, lead: 3.6, room: 1.2 } };
 export const LUFS = -14, CEILING_DBTP = -1, PLR = 10.8, MAX_CUT = 8;
+
+// ---- the studio sound's recorded instruments (CC0, built by tools/sound/build-studio-kit.py): a kit.json and its
+// 16-bit WAVs, read once on first use; a skill keeps the kit next to this script, the repo in tools/sound
+const KIT_DIR = ['./studio-kit/', '../../tools/sound/studio-kit/'].map((p) => fileURLToPath(new URL(p, import.meta.url))).find((d) => existsSync(d + 'kit.json'));
+const kitCache = {};
+function readWav(path) {
+  const b = readFileSync(path);
+  let o = 12, ch = 1, sr = 44100, data = null;
+  while (o + 8 <= b.length) {
+    const id = b.toString('latin1', o, o + 4), size = b.readUInt32LE(o + 4);
+    if (id === 'fmt ') { ch = b.readUInt16LE(o + 10); sr = b.readUInt32LE(o + 12); }
+    else if (id === 'data') { data = b.subarray(o + 8, o + 8 + size); break; }
+    o += 8 + size + (size % 2);
+  }
+  const frames = Math.floor(data.length / (2 * ch)), l = new Float32Array(frames), r = new Float32Array(frames);
+  for (let i = 0; i < frames; i++) { l[i] = data.readInt16LE(i * 2 * ch) / 32768; r[i] = ch > 1 ? data.readInt16LE(i * 2 * ch + 2) / 32768 : l[i]; }
+  return { sr, l, r };
+}
+function kitOf(name) {
+  if (!KIT_DIR) throw new Error('music: the studio style needs its sample kit (studio-kit/ next to music.mjs)');
+  if (!kitCache[name]) {
+    const all = kitCache.json || (kitCache.json = JSON.parse(readFileSync(KIT_DIR + 'kit.json', 'utf8')));
+    const k = all[name], layers = [...new Set(k.samples.map((s) => s.vel))].sort((a, b) => a - b);
+    kitCache[name] = { ...k, layers, audio: k.samples.map((s) => readWav(KIT_DIR + s.file)) };
+  }
+  return kitCache[name];
+}
 
 // seeded noise, closed-form: the same value for the same (index, seed) on every render
 function hash(i, seed) {
@@ -234,9 +262,10 @@ const HATS = ['eighths', 'offbeats', 'sixteenths'];
 // no square lead or pulse pad: square and pulse waves are what made the score sound like an old game console
 const LEADS = ['bell', 'pluck', 'mallet'];
 const PADS = ['saw', 'glass'];
-// the sound: 'synth' (oscillators), 'organic' (plucked strings, a marimba, a shaker) or 'felt' (a soft piano and a
-// sub bass over a minimal kit: kick, rim, shaker)
-export const STYLES = ['synth', 'organic', 'felt'];
+// the sound: 'synth' (oscillators), 'organic' (plucked strings, a marimba, a shaker), 'felt' (a soft piano and a
+// sub bass over a minimal kit: kick, rim, shaker) or 'studio' (recorded piano, vibraphone, strings, claps and hats
+// over the synth kick and bass)
+export const STYLES = ['synth', 'organic', 'felt', 'studio'];
 
 // string hash and a small seeded generator: the same film name gives the same choices on every render
 function hashStr(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -261,7 +290,7 @@ export function songOf(score) {
     A = ch; B = ch.length >= 4 ? [...ch.slice(2), ...ch.slice(0, 2)] : ch;
   } else {
     // major keys only: the founder found the minor sets off under product films (2026-10-20)
-    const set = pick(R('progression'), PROGRESSIONS.filter((x) => x.mode === 'major')), T = set.mode === 'major' ? MAJ : MIN;
+    const set = score.progression !== undefined ? PROGRESSIONS[score.progression] : pick(R('progression'), PROGRESSIONS.filter((x) => x.mode === 'major')), T = set.mode === 'major' ? MAJ : MIN;
     mode = set.mode; A = set.A.split(' ').map((c) => T[c]); B = set.B.split(' ').map((c) => T[c]);
     const [lo, hi] = score.keyRange || [43, 52];
     root = lo + Math.floor(R('key')() * (hi - lo + 1));
@@ -291,7 +320,8 @@ export function compose(score, opts = {}) {
   const bus = { kick: stereo(), clap: stereo(), hats: stereo(), bass: stereo(), chords: stereo(), pad: stereo(), lead: stereo(), fx: stereo() };
   const send = new Float32Array(n); // mono send into the room
   const kicks = [];
-  const at = (bars) => sections.find((s) => bars >= s.from - 1e-9 && bars < s.to - 1e-9) || {};
+  let arcAt = null; // the arc's levels, once the form is known (below)
+  const at = (bars) => { const s = sections.find((x) => bars >= x.from - 1e-9 && bars < x.to - 1e-9) || {}; return arcAt ? arcAt(s, Math.floor(bars + 1e-9)) : s; };
   const atT = (t) => at(t / bar + 1e-9);
   const inBreak = (t) => breaks.some(([a, b]) => t >= a - 1e-6 && t < b - 1e-6);
   const leadLevel = (s) => (s.lead !== undefined ? s.lead : s.kick > 0 ? 0.6 : 0);
@@ -347,6 +377,21 @@ export function compose(score, opts = {}) {
     const len = Math.min(g.to, Math.floor(landBar)) - g.from;
     if (len >= 4) { const mid = g.from + (len >= 8 ? 4 : Math.floor(len / 2)); blocks.splice(blocks.indexOf(g) + 1, 0, { from: mid, to: g.to, label: 'B' }); g.to = mid; }
   }
+  // the arc (score.arc, the studio sound's default): a long groove builds instead of sitting at one level. A groove
+  // of 16 bars or more drops for 2–4 bars to the comp and pad (no kick, bass or lead) before a last lift of up to
+  // 8 bars into the landing; the levels are set below, once the plan is known
+  const arc = score.arc !== undefined ? !!score.arc : song.style === 'studio';
+  let breakdown = null;
+  if (arc && land !== null) {
+    const end = Math.ceil(landBar - 1e-6), gb = [];
+    for (const bl of blocks) if (bl.label === 'A' || bl.label === 'B') for (let b = bl.from; b < Math.min(bl.to, end); b++) gb.push(b);
+    const G = gb.length, bd = G >= 24 ? 4 : 2, b0 = end - Math.min(8, G - 8 - bd) - bd;
+    if (G >= 16 && gb.includes(b0) && gb.slice(gb.indexOf(b0)).every((b, i) => b === b0 + i)) { // only over one unbroken groove
+      for (let k = blocks.length - 1; k >= 0; k--) { if (blocks[k].from >= b0) blocks.splice(k, 1); else if (blocks[k].to > b0) blocks[k].to = b0; }
+      blocks.push({ from: b0, to: b0 + bd, label: 'interlude' }, { from: b0 + bd, to: bars, label: 'B' });
+      breakdown = [b0, b0 + bd];
+    }
+  }
   // each bar: its section, place in the section (runs of one label count on), chord and role
   const plan = [];
   for (let k = 0; k < blocks.length; k++) {
@@ -356,6 +401,19 @@ export function compose(score, opts = {}) {
       const rel = b - bl.run, prog = bl.label === 'B' ? song.B : song.A;
       plan[b] = { label: bl.label, rel, phrase: Math.floor(rel / 4), role: rel % 4, chord: prog[rel % prog.length], groove: bl.label === 'A' || bl.label === 'B', blockEnd: b === bl.to - 1 };
     }
+  }
+  // the arc's levels: the first 4 bars of groove bring the hats in light and hold the lead back, the drums grow
+  // about 2 dB to the landing, a lift adds the clap (when the film sets none), and the breakdown keeps light hats
+  // under the comp and a fuller pad
+  if (arc) {
+    const g0 = plan.findIndex((p) => p && p.groove), G = Math.max(1, Math.ceil(landBar - 1e-6) - g0);
+    arcAt = (s, b) => {
+      if (!(s.kick > 0) || g0 < 0 || !plan[b]) return s;
+      if (breakdown && b >= breakdown[0] && b < breakdown[1]) return { ...s, kick: 0, clap: 0, bass: 0, lead: 0, hats: (s.hats || 0) * 0.5, pad: (s.pad || 0) * 1.15 };
+      const gi = b - g0, dm = 0.8 + 0.2 * Math.min(1, Math.max(0, gi / G)), lift = plan[b].label === 'B';
+      const lead = gi < 4 || (score.melody === 'hook' && !lift) ? 0 : leadLevel(s);
+      return { ...s, kick: s.kick * dm, hats: (s.hats || 0) * dm * (gi < 4 ? 0.6 : 1), clap: (s.clap !== undefined ? s.clap : lift ? 0.6 * s.kick : 0) * dm, lead };
+    };
   }
   for (const bl of blocks) { const end = blocks.filter((x) => x.run === bl.run && x.label === bl.label).reduce((m, x) => Math.max(m, x.to), bl.to); for (let b = bl.from; b < bl.to; b++) plan[b].runLen = end - bl.run; }
   for (let b = 0; b < bars; b++) {
@@ -620,6 +678,29 @@ export function compose(score, opts = {}) {
       put(bus.bass, s0 + i, v, v);
     }
   }
+  // a recorded note (the studio sound): the nearest sample in the nearest velocity layer (a hit with no pitch: a
+  // seeded pick among them), repitched with cubic interpolation, held for `dur` and released over the kit's
+  // release time. o: vel, pan, send, id, from (s into the sample: a string's re-bow), fade (s), level (a gain per
+  // output sample)
+  function sampled(name, t, midi, g, dur, busName, o = {}) {
+    const k = kitOf(name), vel = Math.min(1, Math.max(0, o.vel !== undefined ? o.vel : g));
+    const lv = k.layers.reduce((a, x) => (Math.abs(x - vel) < Math.abs(a - vel) ? x : a));
+    const pool = k.samples.map((s, j) => ({ ...s, j })).filter((s) => s.vel === lv);
+    const s = midi === null ? pool[Math.floor((hash(o.id || 0, 77) * 0.5 + 0.5) * pool.length) % pool.length]
+      : pool.reduce((a, x) => (Math.abs(x.midi - midi) < Math.abs(a.midi - midi) ? x : a));
+    const w = k.audio[s.j], step = (w.sr / SR) * (midi === null ? 1 : 2 ** ((midi - s.midi) / 12));
+    const rel = k.release, from = 1 + (o.from || 0) * w.sr, fade = o.fade || 0;
+    const s0 = Math.round(t * SR), len = Math.min(Math.floor((w.l.length - 3 - from) / step), Math.round((dur + rel) * SR));
+    const pan = o.pan || 0, gl = Math.SQRT2 * Math.cos((0.5 + pan) * Math.PI / 2), gr = Math.SQRT2 * Math.sin((0.5 + pan) * Math.PI / 2), sendAmt = o.send !== undefined ? o.send : 0.2;
+    const cub = (x, j, f) => { const a = x[j - 1], b = x[j], c = x[j + 1], d = x[j + 2]; return b + 0.5 * f * (c - a + f * (2 * a - 5 * b + 4 * c - d + f * (3 * (b - c) + d - a))); };
+    for (let i = 0; i < len; i++) {
+      const pos = from + i * step, j = Math.floor(pos), f = pos - j, u = i / SR;
+      const env = (fade ? Math.min(1, u / fade) : 1) * (u < dur ? 1 : Math.max(0, 1 - (u - dur) / rel) ** 2) * Math.min(1, (len - i) / (0.01 * SR)) * g * (o.level ? o.level[s0 + i] || 0 : 1);
+      const l = cub(w.l, j, f) * env * gl, r = cub(w.r, j, f) * env * gr;
+      put(bus[busName], s0 + i, l, r);
+      if (s0 + i < n) send[s0 + i] += (l + r) * 0.5 * sendAmt;
+    }
+  }
 
   // ---- the melody: a motif, then its answer, its development and a cadence; the lift raises it a third
   // and adds a slow counter-line. Strong beats take chord tones, the rest move by step, one leap and back.
@@ -645,6 +726,8 @@ export function compose(score, opts = {}) {
     const c = p.chord, lift = p.label === 'B' ? 2 : 0, odd = p.phrase % 2 === 1;
     if (p.role === 0) { const ns = realise(p.label === 'B' ? motif.b : motif.a, c, motif.start + lift, motif.dir, { leapAt: motif.leapAt }); return ns; }
     if (p.role === 1) { const cell = (p.label === 'B' ? motif.b : motif.a).slice(0, -1); return realise(cell, c, lastD, -motif.dir, { last: 3 }); }
+    // score.melody 'hook': the third bar states the motif again, so the phrase comes back (AB AC)
+    if (p.role === 2 && score.melody === 'hook') return realise(p.label === 'B' ? motif.b : motif.a, c, motif.start + lift, motif.dir, { leapAt: motif.leapAt });
     if (p.role === 2) return realise(odd ? motif.b : motif.a, c, motif.start + lift + 2, odd ? -motif.dir : motif.dir, { leapAt: odd ? undefined : motif.leapAt });
     // the cadence: a long chord tone, and every other phrase a two-note pickup into the next bar
     const d = snap(lastD - 1, c, -1), out = [{ e: 0, d, len: 3 }];
@@ -667,6 +750,9 @@ export function compose(score, opts = {}) {
     broken: [[0, 'L', 0.8], [4, 'B', 0.6], [10, 'U', 0.65], [14, 'T', 0.45]],
     offbeat: [[2, 'B', 0.75], [6, 'U', 0.6], [10, 'B', 0.7], [14, 'U', 0.55]],
     halves: [[0, 'F', 0.8], [8, 'B', 0.6]],
+    // the studio piano's right hand (score.comp 'pianist'): the pop 3-3-2 in a verse, pedalled eighths in a lift
+    rh332: [[0, 'B', 0.85], [6, 'B', 0.7], [12, 'U', 0.65]],
+    rh8: [[0, 'B', 0.85], [4, 'B', 0.6], [6, 'U', 0.55], [8, 'B', 0.8], [12, 'B', 0.6], [14, 'U', 0.55]],
   };
   const FELT = { pluck: 'dotted', stab: 'broken', pulse: 'offbeat', swell: 'halves', arp: 'halves' };
   // the organic and felt sounds are played, not sequenced: a few ms early or late and a little louder or softer,
@@ -678,6 +764,7 @@ export function compose(score, opts = {}) {
     notes.forEach((m, i) => {
       const tt = Math.max(0, t + hum(id * 8 + i, song.style === 'felt' ? 6 : 4) + (n > 2 ? i * 0.007 : 0)), gv = (g / Math.sqrt(n)) * (1 + 0.08 * hash(id * 8 + i, 92));
       if (song.style === 'felt') piano(tt, m, gv, len);
+      else if (song.style === 'studio') sampled('piano', tt, m, gv, len, 'chords', { vel: 0.3 + 0.7 * Math.min(1, g), send: 0.25 });
       else pluckString(tt, m, gv, len, 'chords', ((i % 3) - 1) * 0.3);
     });
   }
@@ -685,6 +772,7 @@ export function compose(score, opts = {}) {
     if (song.style === 'synth') return voice(kind, t, midi, g, gate);
     const tt = Math.max(0, t + hum(id, 5)), gv = g * (1 + 0.06 * hash(id, 93));
     if (song.style === 'felt') piano(tt, midi + 12, gv * 0.8, gate + 0.2, 'lead');
+    else if (song.style === 'studio') sampled(counter ? 'violins' : 'vibes', tt, midi, gv * (counter ? 0.6 : 1), gate, 'lead', { vel: counter ? 0.6 : 0.4 + 0.6 * Math.min(1, g), send: 0.35 });
     else if (counter) pluckString(tt, midi, gv * 0.8, gate, 'lead');
     else marimba(tt, midi, gv, gate);
   }
@@ -745,10 +833,10 @@ export function compose(score, opts = {}) {
     const sb = at(b + 1e-9);
     // the patterns of this bar: the section sets the family, the 8-bar block the variant, the 4-bar phrase the detail
     const block8 = Math.floor(p.rel / 8), lift = p.label === 'B';
-    const felt = song.style === 'felt';
+    const felt = song.style === 'felt', studio = song.style === 'studio', pianist = studio && score.comp === 'pianist';
     // the bass changes every 4 bars, the chords every 8; the felt sound's sub plays roots in the verse
     const bassFam = !p.groove ? 'offbeat' : felt ? (lift ? 'synco' : 'roots') : song.bass[(lift ? 2 : 0) + (p.phrase % 2)];
-    const fam0 = !p.groove ? 'arp' : song.chords[(lift ? 2 : 0) + (block8 % 2)], chordFam = felt ? FELT[fam0] : fam0;
+    const fam0 = !p.groove ? 'arp' : song.chords[(lift ? 2 : 0) + (block8 % 2)], chordFam = felt ? FELT[fam0] : pianist && p.groove ? (lift ? 'rh8' : 'rh332') : fam0;
     // the intro's arpeggio is soft; under the swell it's a second, quieter layer
     // the lead's notes first, so the comp can leave room for them
     const lv = leadLevel(sb), leadOn = lv > 0 && p.groove && !(p.label === 'A' && p.rel < 4 && p.runLen >= 8); // a long verse lets the lead in after 4 bars
@@ -772,13 +860,14 @@ export function compose(score, opts = {}) {
       const brk = inBreak(t), s = atT(t), fillZone = p.fill && k >= 12;
       if (brk) { if (s.pad) playCompAt(k, t, s, 1.5); continue; }
       if (s.kick) for (const [st, v] of kickSteps(drumFam, b % 2 === 1)) if (st === k) kick(t, s.kick * v * (felt ? 0.8 : 1));
-      if ((k === 4 || k === 12) && s.clap) (felt ? rim : clap)(t, s.clap, b * 16 + k);
+      if ((k === 4 || k === 12) && s.clap) { if (studio) sampled('clap', t, null, s.clap, 0.6, 'clap', { id: b * 16 + k, vel: 0.75 + 0.1 * hash(b * 16 + k, 12), send: 1 }); else (felt ? rim : clap)(t, s.clap, b * 16 + k); }
       if (fillZone && !felt && (s.clap || s.kick) && k > 12) snare(t, 0.22 * Math.max(s.clap || 0.5, 0.4), 3000 + b * 16 + k); // ghost notes, flat, no build
       if (s.hats && !(fillZone && k > 12)) {
         let v = 0, open = false;
         if (hatMode === 'offbeats') { if (k % 4 === 2) { v = 0.9; open = true; } }
         else v = k % 4 === 2 ? 0.92 : k % 4 === 0 ? 0.85 : hatMode === 'sixteenths' && s.hats >= 0.45 ? 0.42 : 0;
-        if (v && song.style === 'synth') hat(t, s.hats * v * (1 + 0.07 * hash(b * 16 + k, 11)), 1000 + b * 16 + k, open);
+        if (v && studio) sampled(open ? 'hatOpen' : 'hat', Math.max(0, t + hum(b * 16 + k + 500, 2)), null, s.hats * v * (1 + 0.07 * hash(b * 16 + k, 11)), open ? 0.35 : 0.5, 'hats', { id: b * 16 + k, send: 0.05 });
+        else if (v && song.style === 'synth') hat(t, s.hats * v * (1 + 0.07 * hash(b * 16 + k, 11)), 1000 + b * 16 + k, open);
         else if (v) shaker(Math.max(0, t + hum(b * 16 + k + 500, 3)), s.hats * v * (open ? 1.15 : 1) * (1 + 0.1 * hash(b * 16 + k, 11)), 1000 + b * 16 + k);
       }
       if (s.bass && bassSteps(bassFam).includes(k)) {
@@ -795,12 +884,17 @@ export function compose(score, opts = {}) {
         else bass(t, m, s.bass, Math.min(gap * beat / 4 * 0.85, 0.42 * beat * 2), song.style === 'organic');
       }
       if (s.pad) playCompAt(k, t, s, 1);
+      // the pianist's left hand: the root on 1 and, in a groove, the fifth or the octave on 3, held to the next
+      if (pianist && s.pad && (k === 0 || (k === 8 && p.groove))) {
+        const lo = ladder([pcsOf(chord)[0]], 41, 52)[0], m = k === 0 ? lo : b % 2 ? lo + 12 : lo + 7;
+        sampled('piano', Math.max(0, t + hum(b * 16 + k + 4000, 4)), m, s.pad * 0.5 * (k ? 0.8 : 1), (p.groove ? 2 : 4) * beat + 0.05, 'chords', { vel: 0.55, pan: -0.2, send: 0.2 });
+      }
     }
     function playCompAt(k, t, s, lift) {
       for (const h of comp) if (h.k === k) {
         const next = comp.find((x) => x.kind === h.kind && x.k > k), gap = ((next ? next.k : 16) - k) * beat / 4;
         // each hit stops soon after the next one starts, so the voicings stay apart instead of smearing
-        const len = h.kind === 'swell' || h.kind === 'halves' ? Math.min(gap + 0.12, landBar * bar - t + 0.05) : felt ? gap + 0.25 : h.kind === 'arp' && song.style === 'organic' ? gap + 0.2 : Math.min(CHORD_KIND[h.kind] ? CHORD_KIND[h.kind][0] : 0.6, gap + 0.06);
+        const len = h.kind === 'swell' || h.kind === 'halves' ? Math.min(gap + 0.12, landBar * bar - t + 0.05) : felt ? gap + 0.25 : studio ? gap + 0.1 : h.kind === 'arp' && song.style === 'organic' ? gap + 0.2 : Math.min(CHORD_KIND[h.kind] ? CHORD_KIND[h.kind][0] : 0.6, gap + 0.06);
         playComp(t, h.notes, s.pad * h.v * lift, h.kind, len, b * 16 + k + (h.kind === 'arp' ? 7000 : 0));
       }
     }
@@ -861,7 +955,7 @@ export function compose(score, opts = {}) {
     if (land !== null) padSpans.push({ from: land, to: D, notes: voiceChord(homeChord, 'home'), moves: [] });
   }
   // the organic sound keeps a quieter pad that breathes in slowly; the felt sound has none (the piano rings)
-  const PAD_SHARE = { synth: 1, organic: 0.6, felt: 0 }[song.style], padAttack = song.style === 'organic' ? 0.3 : 0.025;
+  const PAD_SHARE = { synth: 1, organic: 0.6, felt: 0, studio: 1 }[song.style], padAttack = song.style === 'organic' ? 0.3 : 0.025;
   const padLevel = new Float32Array(n);
   {
     let v = 0; const a = 1 - Math.exp(-1 / (0.03 * SR)), hold = before.pad || (land !== null ? 0.6 : 0);
@@ -871,7 +965,17 @@ export function compose(score, opts = {}) {
     }
   }
   const padVoices = { saw: [[-0.07, 1, 0.25, 0], [0.07, 0.25, 1, 0]], pulse: [[-0.06, 1, 0.3, 0.3], [0.06, 0.3, 1, 0.3]], glass: [[-0.07, 1, 0.25, 0], [0.07, 0.25, 1, 0], [12, 0.35, 0.35, -1]] }[song.pad];
-  if (PAD_SHARE > 0) for (const sp of padSpans) {
+  // the studio sound's pad is a string section: celli on the root an octave down, violas and violins on the voicing;
+  // a long chord is re-bowed every 2.2 s, each new bow taken from past the sample's attack and crossfaded in
+  if (song.style === 'studio') for (const sp of padSpans) {
+    const parts = [['celli', sp.notes[0] - 12, 0.75, -0.25], ['violas', sp.notes[0], 0.55, -0.1], ['violas', sp.notes[1], 0.5, 0.15], ['violins', sp.notes[2], 0.6, 0.3]];
+    const SEG = 2.2, X = 0.35, L = sp.to - sp.from;
+    for (let s = 0; s * SEG < L - 0.05; s++) {
+      const a = sp.from + s * SEG - (s ? X : 0), e = Math.min(sp.to, sp.from + (s + 1) * SEG + (sp.from + (s + 1) * SEG < sp.to - 0.05 ? X : 0));
+      for (const [inst, m, gg, pan] of parts) sampled(inst, a, m, gg, e - a, 'pad', { vel: 0.6, pan, send: 0.3, level: padLevel, from: s ? 0.7 : 0, fade: s ? X : 0 });
+    }
+  }
+  else if (PAD_SHARE > 0) for (const sp of padSpans) {
     const s0 = Math.round(sp.from * SR), s1 = Math.round(sp.to * SR), rel = Math.round(0.15 * SR);
     const voices = sp.notes.flatMap((m, k) => padVoices.map(([d, gl, gr, w], j) => ({ k, m: m + d, dt: hz(m + d) / SR, to: hz(m + d) / SR, p: hash(k * 3 + j, s0) * 0.5 + 0.5, q: 0, gl, gr, w })));
     for (const o of voices) o.q = (o.p + (o.w > 0 ? 0.5 - o.w : 0)) % 1;
@@ -904,7 +1008,7 @@ export function compose(score, opts = {}) {
   const room = stereo();
   {
     biquad(send, 'hp', 220); biquad(send, 'lp', 7000);
-    const lens = [1427, 1601, 1867, 2053, 2311, 2539, 2803, 3109], pre = Math.round(0.016 * SR), rt = { synth: 1.1, organic: 1.3, felt: 1.6 }[song.style];
+    const lens = [1427, 1601, 1867, 2053, 2311, 2539, 2803, 3109], pre = Math.round(0.016 * SR), rt = { synth: 1.1, organic: 1.3, felt: 1.6, studio: 1.5 }[song.style];
     const g = lens.map((L) => 10 ** (-3 * L / (rt * SR))), buf = lens.map((L) => new Float32Array(L)), idx = lens.map(() => 0);
     const damp = Math.exp(-TAU * 5200 / SR), lp = lens.map(() => 0);
     const o = new Float32Array(8);
@@ -943,7 +1047,7 @@ export function compose(score, opts = {}) {
   // the hats' metal rings at 2.7–3.2 kHz (5 dB over its neighbours): cut it
   for (const ch of bus.hats) biquad(ch, 'peak', 2950, 1.2, -8);
   // ---- the mix: bus levels set against the reference songs' stem balance (score-study.md)
-  const GAIN = { kick: 0.9, clap: 3.8, hats: 1.05, bass: 0.6, chords: 2.2, pad: 0.5, lead: 0.27, room: 0.8, fx: 1, ...{ synth: {}, organic: STYLE_GAIN.organic, felt: STYLE_GAIN.felt }[song.style] };
+  const GAIN = { kick: 0.9, clap: 3.8, hats: 1.05, bass: 0.6, chords: 2.2, pad: 0.5, lead: 0.27, room: 0.8, fx: 1, ...(STYLE_GAIN[song.style] || {}) };
   const drums = stereo(), tonal = stereo(), stems = opts.stems ? { drums: stereo(), bass: stereo(), chords: stereo(), lead: stereo(), room: stereo() } : null;
   for (let c = 0; c < 2; c++) {
     for (let i = 0; i < n; i++) {

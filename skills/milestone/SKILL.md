@@ -1,11 +1,11 @@
 ---
 name: milestone
-description: Make a 14-second milestone video for a product on its real screens - one tap on the action the product counts, that one result lifting out of the app and multiplying into thousands as a counter rolls to the number, a thank-you, and the field of results closing into the app's icon. Renders a tall (9:16) MP4 with sound. Use when the user asks for a milestone, "we hit N users", thank-you, anniversary or celebration video for their product.
+description: Make a 16-second milestone video for a product on its real screens - one tap on the action the product counts, that one result lifting out of the app and multiplying into thousands as a counter rolls to the number, a thank-you, and the field of results closing into the app's icon. Renders a tall (9:16) MP4 with sound. Use when the user asks for a milestone, "we hit N users", thank-you, anniversary or celebration video for their product.
 ---
 
 # Milestone
 
-You make a 14-second film for a number the product has reached. It starts
+You make a 16-second film for a number the product has reached. It starts
 with the one action the number counts, done once on the product's real
 screen ("One tap." "Water Monty": his ring fills, "One plant, watered."),
 then that one result lifts out of the app and multiplies, from a handful to
@@ -31,7 +31,7 @@ Read `style.md` before you start and `critique.md` before you judge.
 
 1. **Set up.**
    ```bash
-   mkdir -p milestone-film && cp -R "$SKILL_DIR/reference" milestone-film/reference && cp -R "$SKILL_DIR/reference" milestone-film/film && cp -R "$SKILL_DIR/scripts" milestone-film/scripts
+   mkdir -p milestone-film && cp -R "$SKILL_DIR/reference" milestone-film/reference && cp -R "$SKILL_DIR/reference" milestone-film/film && cp -R "$SKILL_DIR/scripts" milestone-film/scripts && cp -R "$SKILL_DIR/music" milestone-film/music
    rm -rf milestone-film/reference/out milestone-film/film/out
    cd milestone-film && npm init -y >/dev/null && npm i -D puppeteer-core
    ```
@@ -51,7 +51,7 @@ Read `style.md` before you start and `critique.md` before you judge.
 6. **Check:** `node scripts/compare.mjs reference film out/compare-9x16.png --size 9:16`, `node scripts/render.mjs film --size 9:16 --stress` and `--phone`. Fix anything that fails `critique.md`.
 7. **Check the motion** on strips of consecutive frames from the MP4 (step 9): the tap and the fill (1.9–3.3), the lift (4.4–5.7), the field and counter (5.1–8.0), the close (10.7–12.0). The lifted result is never shown twice, and the counter is readable against the field at every frame. Then get a fresh judgement, from a sub-agent with only `critique.md` and the images if you can start one.
 8. **Check it's repeatable:** `node scripts/render.mjs film --size 9:16 --check`.
-9. **Render.** `node scripts/render.mjs film --size 9:16 --video --blur 4 --music --sound --poster 8.3` writes `out/9x16.mp4`, 60 fps, about −14 LUFS, and a poster.
+9. **Render.** `node scripts/render.mjs film --size 9:16 --video --blur 4 --audio music/song.mp3 --sound --poster 9.3` writes `out/9x16.mp4`, 60 fps, with the skill's song and effects, about −14 LUFS, and a poster. The song (`music/song.mp3`: bright, uplifting electro-pop at 120 BPM) is fitted to the film: it starts on a bar line and, near the end, lands one hit, where its drums stop and the rest closes and fades (from its stems in `music/song-stems/`). `--from <seconds>` starts at another of its distinct 8-bar sections (the song is about two minutes long). `--music` gives the synthesised score instead; the user's own song works with `--audio their.wav`.
 10. **Write `milestone-film/README.md`** and `out/CAPTION.md` (under 280 characters, the product's words, its URL; the real number and what it counts).
 11. **Report:** the MP4, the poster, the caption, the story and state list, the scores, and the one change that would improve it most.
 
@@ -59,7 +59,7 @@ Read `style.md` before you start and `critique.md` before you judge.
 
 - **The real number,** from the user, never rounded up or invented; the counter ends on exactly it.
 - **The real action and result,** captured from the product; the field is made only of the product's own results.
-- **Let each beat land:** the action is seen before it's tapped, its result holds before it lifts, the number holds with its line before the thanks, the thanks before the close.
+- **Let each beat land, and pause only where the viewer needs it** (`style.md`, "Room where the viewer needs it"): the screen is found before it's tapped (a beat after the phone lands, the touch resting 0.45 s), and each line is read before the next move (about a quarter second a word once landed, a second at least). Never pause on the counter, the field or the close: that's the product's own result multiplying. Keep the pauses in `INSERTS` when you change the words; a longer line gets more room, never less.
 - **Keep the motion** (`style.md`): press states, one-step moves, nothing shown twice.
 - **Engine rules:** `seek(t)` paints from its arguments only; every file inside `film/`.
 - **Only the user's brand;** the phone is the reference's unbranded photograph.
@@ -67,6 +67,7 @@ Read `style.md` before you start and `critique.md` before you judge.
 ## Files
 
 - `reference/`: the Fernwise film (`index.html`), its capture plan and captures (`assets/screens/`), the unbranded phone, fonts (Fraunces, Nunito; SIL Open Font License), `kit.js`. Fernwise is a fictional company made for omnigami's examples.
+- `music/`: the skill's song and its stems.
 - `scripts/`, `style.md`, `critique.md`.
 
 This skill's motion is omnigami's own; it isn't a study of another film.

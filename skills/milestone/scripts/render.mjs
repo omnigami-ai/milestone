@@ -8,19 +8,27 @@
 //     --times 0,1.5,3        stills at these times ('key': the film's own template.keyTimes)
 //     --phone                one frame a second at 360 px wide, tiled: the phone-size check
 //     --strip 4.2            12 consecutive frames starting at 4.2 s: catches pops and overlaps
-//     --check                determinism: render frames twice, in different orders, compare pixels
-//     --video                every frame at the film's fps (template.fpsBySize[size] if set), encoded to <name>.mp4
+//     --review               a strip (every other frame, 0.8 s) around every cut and key time, for a motion reviewer
+//     --check                determinism: render frames twice, in different orders, compare pixels; then the
+//                            film's own template.selfChecks(), if it has any
+//     --video                every frame at the film's fps (template.fpsBySize[size] if set), encoded to <name>.mp4;
+//                            a film's length is template.duration, or template.durationBySize[size] if set (and its
+//                            score template.music, or template.musicBySize[size])
 //     --blur 4               motion blur: average 4 sub-frames across half a frame (a 180° shutter;
 //                            a film's template.shutters can widen it in places)
 //     --sound                add effects from the sound kit on the film's cues (needs --video)
 //     --music                add the film's own score (window.template.music), synthesised (needs --video)
+//     --audio-only           with --music or --audio: the film's soundtrack alone, mixed and levelled as --video
+//                            mixes it, as <name>-score.m4a or <name>-song.m4a; no frames are rendered (a second
+//                            track for a film already rendered: the site's music toggle)
 //     --audio song.wav       a song instead of --music (needs --video), fitted by song.mjs: it starts on
 //                            a bar line, and on the last bar line at least 3.5 s before the end lands one
 //                            hit and closes down and fades (with its stems, in song-stems/ beside it or
 //                            --stems dir: the drums play that hit and stop, the rest closes and fades);
 //                            under --sound effects only its 250–1500 Hz dips. --from 92 starts at the bar
 //                            line nearest 92 s in the song (another section); --stems none ignores stems;
-//                            --ending 51.6 splices into the song's own ending there instead; a song
+//                            --ending 51.6 splices into the song's own ending there instead; --fade 1.8
+//                            closes and fades over 1.8 s after the landing (silent after) instead of to the end; a song
 //                            within 10% of the film's BPM is time-stretched to it (--keep-tempo: not);
 //                            once it lands, the film's result sounds (pop, ping, sparkle, chime) are left out;
 //                            --bpm 121.05 and --downbeat 0.02 override what it measures; --land 34 lands the
@@ -52,6 +60,7 @@ import { fitSong } from './song.mjs';
 
 // the sounds that say "it arrived": after a fitted song lands they're left out (see --audio)
 const RESULTS = new Set(['pop', 'ping', 'sparkle', 'chime']);
+const SFX_UNDER_MUSIC = 0.5; // the effects' level under a song or the score: 6 dB down (the founder, 2026-10-24)
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.wav': 'audio/wav' };
 
@@ -91,7 +100,7 @@ try {
   await page.goto(`${origin}/index.html?render=1`, { waitUntil: 'load' });
   const meta = await page.evaluate(() => {
     const T = window.template;
-    return T ? { fps: T.fps, fpsBySize: T.fpsBySize || null, duration: T.duration, sizes: Object.keys(T.sizes), hasCues: typeof T.cues === 'function', music: T.music || null, cuts: T.cuts || [], shutters: T.shutters || [], keyTimes: T.keyTimes || [], encode: T.encode || null } : null;
+    return T ? { fps: T.fps, fpsBySize: T.fpsBySize || null, duration: T.duration, durationBySize: T.durationBySize || null, baseDuration: T.duration, musicBySize: T.musicBySize || null, baseMusic: T.music || null, sizes: Object.keys(T.sizes), hasCues: typeof T.cues === 'function', music: T.music || null, cuts: T.cuts || [], shutters: T.shutters || [], keyTimes: T.keyTimes || [], encode: T.encode || null } : null;
   });
   if (!meta) throw new Error('index.html did not set window.template');
   const sizes = flag('all') ? meta.sizes : [opt('size', '16:9')];
@@ -100,6 +109,9 @@ try {
   for (const size of sizes) {
     const values = { ...(await page.evaluate(() => window.template.defaults())), ...extra, size };
     const name = size.replace(':', 'x');
+    // a film may set a length per size (template.durationBySize), e.g. an App Store cut held to Apple's 30 s
+    meta.duration = (meta.durationBySize && meta.durationBySize[size]) || meta.baseDuration;
+    meta.music = (meta.musicBySize && meta.musicBySize[size]) || meta.baseMusic; // and its score's sections and breaks
     // a film may set a frame rate per size (template.fpsBySize), e.g. 60 for social and 30 for a store cut
     const fps = (meta.fpsBySize && meta.fpsBySize[size]) || meta.fps;
     await page.evaluate((v) => window.template.prepare(v), values);
@@ -133,6 +145,15 @@ try {
       for (const t of [...list].reverse()) if (hash(png(await frame(t))) !== first.get(t)) { bad++; console.log(`${size}: frame at ${t}s differs`); }
       console.log(bad ? `${size} determinism: FAIL (${bad} of ${list.length} frames differ)` : `${size} determinism: pass (${list.length} frames, two orders)`);
       if (bad) failed = true;
+      // a film's own checks (template.selfChecks: [{ name, ok, detail }]), e.g. that every lifted element has a real
+      // empty-slot capture and leaves nothing of itself behind
+      const own = await page.evaluate(async (v) => (window.template.selfChecks ? await window.template.selfChecks(v) : null), values);
+      if (own) {
+        const fails = own.filter((c) => !c.ok);
+        for (const c of fails) console.log(`${size}: ${c.name}: FAIL ${c.detail || ''}`);
+        console.log(fails.length ? `${size} film checks: FAIL (${fails.length} of ${own.length})` : `${size} film checks: pass (${own.length})`);
+        if (fails.length) failed = true;
+      }
     } else if (times.length) {
       const d = await stills('stills', times);
       console.log(`wrote ${times.length} stills to ${d}`);
@@ -143,21 +164,34 @@ try {
       const t0 = Number(opt('strip'));
       await tile(await stills('strip', Array.from({ length: 12 }, (_, i) => t0 + i / fps)), 320, 6, path.join(outDir, `${name}-strip.png`));
     }
+    // review strips: 12 consecutive frames (every other frame, 0.8 s) around every cut and key moment, for a reviewer
+    // judging motion (easing, overshoot, cuts inside a turn, text that vanishes) that sparse contact sheets can't show
+    if (flag('review')) {
+      const at = [...new Set([...meta.cuts.map((c) => +(c - 6 / fps).toFixed(3)), ...meta.keyTimes.map((k) => +(k - 6 / fps).toFixed(3))])]
+        .filter((t) => t >= 0 && t < meta.duration - 0.8).sort((a, b) => a - b).filter((t, i, all) => i === 0 || t - all[i - 1] > 0.3);
+      const dir = path.join(outDir, `${name}-review`);
+      await mkdir(dir, { recursive: true });
+      for (const t0 of at) await tile(await stills('strip', Array.from({ length: 12 }, (_, i) => t0 + (2 * i) / fps)), 320, 6, path.join(dir, `${t0.toFixed(2).padStart(6, '0')}.png`));
+      console.log(`wrote ${at.length} review strips to ${dir}`);
+    }
     if (opt('poster')) {
       const file = path.join(outDir, `${name}-poster.png`);
       await writeFile(file, png(await frame(Number(opt('poster')))));
       console.log(`wrote ${file}`);
     }
 
-    if (flag('video')) {
-      const silent = path.join(outDir, `${name}-silent.mp4`), file = path.join(outDir, `${name}.mp4`);
+    const audioOnly = flag('audio-only');
+    if (flag('video') || audioOnly) {
+      const silent = path.join(outDir, `${name}-silent.mp4`), file = path.join(outDir, audioOnly ? `${name}-${opt('audio') ? 'song' : 'score'}.m4a` : `${name}.mp4`);
       const sub = Math.max(1, Number(opt('blur', 1)));
       // the film's delivery spec for this size, if it has one: a set bitrate, profile and level
       const spec = (meta.encode && meta.encode[size]) || null;
-      const rate = spec ? ['-profile:v', spec.profile || 'high', '-level:v', String(spec.level || '4.0'), '-b:v', spec.bitrate, '-maxrate', spec.maxrate || spec.bitrate, '-bufsize', spec.bufsize || spec.maxrate || spec.bitrate, ...(spec.minrate ? ['-minrate', spec.minrate] : []), ...(spec.x264 ? ['-x264-params', spec.x264] : [])] : ['-crf', '17'];
+      // (or a quality level with x264 tuning: { crf, tune, x264 }, e.g. a dark, dithered film that bands at the default)
+      const rate = spec && spec.crf ? ['-crf', String(spec.crf), ...(spec.tune ? ['-tune', spec.tune] : []), ...(spec.x264 ? ['-x264-params', spec.x264] : [])] : spec ? ['-profile:v', spec.profile || 'high', '-level:v', String(spec.level || '4.0'), '-b:v', spec.bitrate, '-maxrate', spec.maxrate || spec.bitrate, '-bufsize', spec.bufsize || spec.maxrate || spec.bitrate, ...(spec.minrate ? ['-minrate', spec.minrate] : []), ...(spec.x264 ? ['-x264-params', spec.x264] : [])] : ['-crf', '17'];
       const vf = sub > 1 ? ['-vf', `tmix=frames=${sub},select='eq(mod(n\\,${sub})\\,${sub - 1})',setpts=N/${fps}/TB`] : [];
-      const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(fps * sub), '-i', '-', ...vf, '-r', String(fps), '-c:v', 'libx264', ...rate, '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', silent], { stdio: ['pipe', 'inherit', 'inherit'] });
       const total = Math.round(meta.duration * fps);
+      if (!audioOnly) {
+      const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(fps * sub), '-i', '-', ...vf, '-r', String(fps), '-c:v', 'libx264', ...rate, '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', silent], { stdio: ['pipe', 'inherit', 'inherit'] });
       for (let i = 0; i < total; i++) {
         for (let k = 0; k < sub; k++) {
           const t0 = i / fps;
@@ -172,6 +206,9 @@ try {
       }
       ff.stdin.end();
       await new Promise((r) => ff.on('close', r));
+      }
+      // audio alone: a silent source of the film's length stands in for the video, so the inputs keep their places
+      const base = audioOnly ? ['-f', 'lavfi', '-t', String(meta.duration), '-i', 'anullsrc=r=48000:cl=stereo'] : ['-i', silent];
       const tracks = []; // [file, volume]
       const song = opt('audio');
       if (song && flag('music')) console.log('--audio replaces --music: the film\'s own score is left out');
@@ -190,12 +227,14 @@ try {
         cueList = await page.evaluate((v) => window.template.cues(v), values);
         sfx = effects(cueList, meta.duration);
         await writeFile(sfxFile, sfx);
-        tracks.push([sfxFile, tracks.length ? 0.55 : 1]);
+        // under music the effects sit back: at full level against a song they were "too loud, distracting" (the
+        // founder, 2026-10-24), so 6 dB down under a song and under the score (which had them at 0.55 already)
+        tracks.push([sfxFile, song ? SFX_UNDER_MUSIC : tracks.length ? 0.55 * SFX_UNDER_MUSIC : 1]);
       }
       if (song) {
         const num = (k) => (opt(k) === undefined ? undefined : Number(opt(k)));
         const stems = opt('stems') === undefined ? undefined : opt('stems') === 'none' ? false : path.resolve(opt('stems'));
-        const fit = (fx) => fitSong(path.resolve(song), { duration: meta.duration, sfx: fx, bpm: num('bpm'), downbeat: num('downbeat'), from: num('from') ?? 0, stems, ending: num('ending'), land: num('land'), tempo: flag('keep-tempo') ? undefined : meta.music?.bpm });
+        const fit = (fx) => fitSong(path.resolve(song), { duration: meta.duration, sfx: fx, bpm: num('bpm'), downbeat: num('downbeat'), from: num('from') ?? 0, stems, ending: num('ending'), land: num('land'), fade: num('fade'), tempo: flag('keep-tempo') ? undefined : meta.music?.bpm });
         let { wav, report: r } = await fit(sfx);
         // Once the song has landed and is closing, results stay quiet: a pop over the fading song sounds
         // like more is coming, not like the end (the founder, 2026-10-19). Clicks, typing and moves keep theirs.
@@ -225,13 +264,17 @@ try {
         // Leave 1 dB for 48 kHz resampling and AAC intersample overshoot;
         // decoded exports should retain about −1.5 dBTP of peak headroom.
         const target = 'I=-14:TP=-2.5:LRA=11';
-        const report = await capture('ffmpeg', ['-hide_banner', '-nostats', '-i', silent, ...inputs, '-filter_complex', mix(`loudnorm=${target}:print_format=json`), '-map', '[a]', '-f', 'null', '-']);
+        const report = await capture('ffmpeg', ['-hide_banner', '-nostats', ...base, ...inputs, '-filter_complex', mix(`loudnorm=${target}:print_format=json`), '-map', '[a]', '-f', 'null', '-']);
         const m = JSON.parse(report.slice(report.lastIndexOf('{'), report.lastIndexOf('}') + 1));
         const graph = mix(`loudnorm=${target}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true`);
-        await run('ffmpeg', ['-loglevel', 'error', '-y', '-i', silent, ...inputs, '-filter_complex', graph, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', (spec && spec.audioBitrate) || '192k', '-movflags', '+faststart', file]);
-        await rm(silent);
-      } else await run('mv', [silent, file]);
-      console.log(`wrote ${file} (${total} frames${tracks.length ? ', with sound' : ''})`);
+        if (audioOnly) await run('ffmpeg', ['-loglevel', 'error', '-y', ...base, ...inputs, '-filter_complex', graph, '-map', '[a]', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', file]);
+        else {
+          await run('ffmpeg', ['-loglevel', 'error', '-y', '-i', silent, ...inputs, '-filter_complex', graph, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', (spec && spec.audioBitrate) || '192k', '-movflags', '+faststart', file]);
+          await rm(silent);
+        }
+      } else if (audioOnly) throw new Error('--audio-only needs --music (and a score in window.template.music) or --audio');
+      else await run('mv', [silent, file]);
+      console.log(audioOnly ? `wrote ${file} (${meta.duration} s of sound)` : `wrote ${file} (${total} frames${tracks.length ? ', with sound' : ''})`);
     }
 
     if (flag('stress')) {

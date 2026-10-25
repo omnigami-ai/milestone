@@ -6,7 +6,8 @@
 //   cues.json: [{ "t": 0.12, "type": "tap" }, { "t": 6, "type": "hit", "gain": 0.6 }, ...]
 //
 // Types are the sounds in sounds/kit.json, which says what each is for: tap,
-// click, tick, toggle, pop, swish, whoosh, sparkle, chime, ping, riser, hit.
+// click, tick, toggle, pop, swish, whoosh, sparkle, chime, ping, riser, hit, and the playful,
+// pitched pluck (four notes in turn), blip and zip (a rising glide that crests on its cue).
 // Each lands its moment on the cue: a whoosh or a riser crests there.
 // Sounds with variants (tick) take them in turn. 'thump' still means a softer hit.
 // Motion cues may set duration (total sound length, 0.5–2× the source) to match
@@ -56,7 +57,7 @@ const MOTION = new Set(['swish', 'whoosh', 'riser']);
 const SWEEP = new Set(['swish', 'whoosh']);
 const CONTACT = new Set(['tap', 'click', 'toggle', 'tick']);
 const GROUP = (type) => MOTION.has(type) ? 'motion' : CONTACT.has(type) ? 'contact' : 'accent';
-const GAP = { tick: 0.012, tap: 0.025, click: 0.025, toggle: 0.06, pop: 0.06, hit: 0.08, chime: 0.12, ping: 0.10, sparkle: 0.10, swish: 0.06, whoosh: 0.06, riser: 0.12 };
+const GAP = { tick: 0.012, tap: 0.025, click: 0.025, toggle: 0.06, pop: 0.06, hit: 0.08, chime: 0.12, ping: 0.10, sparkle: 0.10, swish: 0.06, whoosh: 0.06, riser: 0.12, pluck: 0.03, blip: 0.06, zip: 0.08 };
 
 // Export the placement plan so timing and density can be inspected without
 // guessing from the mixed waveform. Sort a copy; never change a film's cues.

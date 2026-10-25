@@ -510,7 +510,7 @@ if (window.parent !== window) {
     try {
       if (d.omni === 'load') {
         await T.prepare(values);
-        window.parent.postMessage({ omni: 'ready', duration: T.duration, fps: T.fps, sizes: Object.keys(T.sizes || {}), fields: T.fields || [], states: T.states || [], defaults: T.defaults() }, '*');
+        window.parent.postMessage({ omni: 'ready', duration: T.duration, durationBySize: T.durationBySize || null, fps: T.fps, sizes: Object.keys(T.sizes || {}), fields: T.fields || [], states: T.states || [], defaults: T.defaults() }, '*');
       } else if (d.omni === 'seek') T.seek(d.t, values);
     } catch (err) {
       window.parent.postMessage({ omni: 'error', message: String(err && err.message || err) }, '*');

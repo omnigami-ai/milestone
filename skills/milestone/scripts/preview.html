@@ -120,7 +120,8 @@
     const { size: _shape, ...words } = meta.defaults; // the shape is chosen here, never saved as a word
     meta.words = words;
     values = { ...words, ...saved };
-    $('scrub').max = String(meta.duration);
+    const dur = () => (meta.durationBySize && meta.durationBySize[shape]) || meta.duration; // a film may set a length per shape
+    meta.dur = dur;
     $('play').disabled = $('scrub').disabled = $('reset').disabled = false;
     shape = meta.sizes.includes(meta.defaults.size) ? meta.defaults.size : meta.sizes[0];
     if (meta.sizes.length > 1) {
@@ -128,7 +129,7 @@
       for (const s of meta.sizes) {
         const button = document.createElement('button');
         button.textContent = SHAPE_NAMES[s] || s;
-        button.addEventListener('click', () => { shape = s; showShape(); paint(); });
+        button.addEventListener('click', () => { shape = s; t = Math.min(t, meta.dur() - .01); showShape(); paint(); });
         $('shapes').append(button);
       }
     }
@@ -136,7 +137,7 @@
     meta.states.forEach(([start, name]) => {
       const button = document.createElement('button');
       button.textContent = name;
-      button.addEventListener('click', () => { setPlaying(false); t = Math.min(meta.duration - .01, start + .35); paint(); });
+      button.addEventListener('click', () => { setPlaying(false); t = Math.min(meta.dur() - .01, start + .35); paint(); });
       const li = document.createElement('li'); li.append(button); $('states').append(li);
     });
     fields(); paint();
@@ -147,6 +148,7 @@
   // the stage, the shape buttons and the rendered MP4 all follow the chosen shape
   async function showShape() {
     const [w, h] = shape.split(':').map(Number);
+    $('scrub').max = String(meta.dur());
     if (w > 0 && h > 0) document.querySelector('.stage').style.setProperty('--ar', w / h);
     [...$('shapes').children].forEach((b, i) => b.setAttribute('aria-current', String(meta.sizes[i] === shape)));
     const file = shape.replace(':', 'x') + '.mp4', url = '/video/' + file;
@@ -157,7 +159,7 @@
   }
   function tick(now) {
     if (playing && !document.hidden) {
-      if (last !== null) t = (t + (now - last) / 1000) % meta.duration;
+      if (last !== null) t = (t + (now - last) / 1000) % meta.dur();
       last = now; paint();
     } else last = null;
     requestAnimationFrame(tick);

@@ -18,7 +18,15 @@
 // portrait with a full ring. Tall (9:16).
 (() => {
   const { clamp, lerp, spring, loadFont, loadImage, measure, roundRect, easeOutExpo, easeInOutCubic } = window.kit;
-  const FPS = 60, BEAT = 0.5, DURATION = 28 * BEAT; // 120 BPM, 28 beats, 14 s
+  const FPS = 60, BEAT = 0.5;
+  // the founder's pauses (2026-10-22): pause for what the viewer needs to read or find, never on the product's own
+  // working. Whole beats go in before these original times (the beats below are written on the original 14 s grid
+  // and shifted): a beat before the touch (the phone has just risen: the eye finds "Water Monty" first), a beat
+  // before the lift ("One plant, watered." is read), a beat before the thanks (the number and its line are read) and
+  // a beat before the words leave (the thanks is read). The counter, the field and the close keep their pace.
+  const INSERTS = [[1.5, BEAT], [4.3, BEAT], [9.4, BEAT], [10.7, BEAT]];
+  const at = (x) => x + INSERTS.reduce((a, [p, d]) => a + (x >= p ? d : 0), 0); // an original time, at its new time
+  const DURATION = at(28 * BEAT); // 120 BPM, 32 beats, 16 s
   const W = 1080, H = 1920;
   const canvas = document.getElementById('c');
   const g = canvas.getContext('2d', { willReadFrequently: true });
@@ -45,9 +53,9 @@
 
   // ---------- the beats (120 BPM) ----------
   const T = {
-    head: 0.3, phone: [0.45, 1.3], touch: 1.55, tap: 2.0, fill: [2.05, 3.15], push: [2.05, 2.9], watered: 3.18, one: 3.25,
-    lift: [4.4, 5.3], grow: 5.1, zoom: [5.2, 8.0], count: [5.3, 7.9], what: 8.1, thanks: 9.45, out: 10.75,
-    close: [10.85, 11.75], mark: 11.8, word: 12.2, tagline: 12.5,
+    head: at(0.3), phone: [at(0.45), at(1.3)], touch: at(1.55), tap: at(2.0), fill: [at(2.05), at(3.15)], push: [at(2.05), at(2.9)], watered: at(3.18), one: at(3.25),
+    lift: [at(4.4), at(5.3)], grow: at(5.1), zoom: [at(5.2), at(8.0)], count: [at(5.3), at(7.9)], what: at(8.1), thanks: at(9.45), out: at(10.75),
+    close: [at(10.85), at(11.75)], mark: at(11.8), word: at(12.2), tagline: at(12.5),
   };
 
   // ---------- the phone (an unbranded phone, photographed, its screen cut out) and Monty's page ----------
@@ -89,6 +97,16 @@
     c.save(); roundRect(c, P.x, P.y, w, h, SR * P.k / U); c.clip(); c.fillStyle = CREAM; c.fillRect(P.x, P.y, w, h);
     shot(c, pageAt(t), P.x, P.y, P.k);
     c.save(); c.translate(P.x, P.y); c.scale(P.k, P.k); ring(c, t); c.restore(); // the ring fills, as the app fills it
+    // the status line rolls over as the page turns watered: "Due today" lifts out, then "Watered today · Next drink in
+    // about 6 days" lifts in (one line at a time; swapped in a frame it read as a jump)
+    if (t >= T.watered && t < T.watered + 0.3) {
+      const S = SCR.rects.plant.status, x = P.x + S[0] * P.k, y = P.y + (S[1] - 2) * P.k, w = S[2] * P.k, h = (S[3] + 4) * P.k;
+      const eo = easeInOutCubic(clamp((t - T.watered) / 0.12)), ei = easeInOutCubic(clamp((t - T.watered - 0.1) / 0.18));
+      c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.fillStyle = CREAM; c.fillRect(x, y, w, h);
+      const line = (name, dy, a) => { if (a <= 0) return; c.globalAlpha = a; c.drawImage(SCR.img[name], S[0] * 4, (S[1] - 2) * 4, S[2] * 4, (S[3] + 4) * 4, x, y + dy * P.k, w, h); c.globalAlpha = 1; };
+      line('plant-000', -10 * eo, 1 - eo); line('plant-100', 10 * (1 - ei), ei);
+      c.restore();
+    }
     // once his portrait lifts out of the app, the page keeps an empty space where it was
     if (t >= T.lift[0]) { const Q = SCR.rects.plant.portrait; c.fillStyle = CREAM; c.beginPath(); c.arc(P.x + (Q[0] + Q[2] / 2) * P.k, P.y + (Q[1] + Q[3] / 2) * P.k, (Q[2] / 2 + 8) * P.k, 0, Math.PI * 2); c.fill(); }
     // the tap: "Water Monty" sinks under the finger and lights a touch, its touch ring spreading
@@ -158,7 +176,10 @@
       BL.globalCompositeOperation = 'destination-in'; const m = BL.createRadialGradient(cx, cy, H * 0.16, cx, cy, H * 0.56); m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(1, `rgba(0,0,0,${dof})`); BL.fillStyle = m; BL.fillRect(0, 0, W, H);
       g.drawImage(blurC, 0, 0);
     }
-    const vg = g.createRadialGradient(W / 2, H * 0.5, H * 0.25, W / 2, H * 0.5, H * 0.72); vg.addColorStop(0, 'rgba(8,18,10,0)'); vg.addColorStop(1, `rgba(8,18,10,${0.55 * end})`); g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    // the vignette comes in over the lift, as the phone falls back (at full strength on the lift's first frame it
+    // darkened the whole frame in one step: the founder's "shadow glitch", 2026-10-24)
+    const vin = easeInOutCubic(clamp((t - T.lift[0]) / (T.lift[1] - T.lift[0])));
+    const vg = g.createRadialGradient(W / 2, H * 0.5, H * 0.25, W / 2, H * 0.5, H * 0.72); vg.addColorStop(0, 'rgba(8,18,10,0)'); vg.addColorStop(1, `rgba(8,18,10,${0.55 * end * vin})`); g.fillStyle = vg; g.fillRect(0, 0, W, H);
   }
 
   // ---------- type ----------
@@ -196,7 +217,8 @@
       const P = phoneAt(T.lift[0]), q = clamp((t - T.lift[0]) / (T.lift[1] + 0.4 - T.lift[0])), e = 1 - (1 - q) ** 3, sink = q ** 2.4;
       PL.reset(); drawPhone(T.lift[0] + 0.001, PL);
       const k = 1 - 0.14 * e;
-      g.save(); g.filter = `blur(${Math.round(18 * e)}px) brightness(${1 - 0.35 * e})`; g.translate(P.fx, P.fy + sink * 900); g.scale(k, k); g.translate(-P.fx, -P.fy); g.drawImage(phoneC, 0, 0); g.restore();
+      // the blur unrounded: a whole first pixel of blur read as a jump
+      g.save(); g.filter = `blur(${(18 * e).toFixed(2)}px) brightness(${1 - 0.35 * e})`; g.translate(P.fx, P.fy + sink * 900); g.scale(k, k); g.translate(-P.fx, -P.fy); g.drawImage(phoneC, 0, 0); g.restore();
       anchor = [P.fx, P.fy];
     }
     // the lift: his watered portrait stays as the phone drops away, and moves to the middle
@@ -280,11 +302,11 @@
   const music = { style: 'organic', // the played sound (plucked strings, marimba, shaker) for a plants or botanicals brand
     bpm: 120, duration: DURATION, root: 50,
     chords: [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]],
-    sections: [{ from: 0, to: 1, pad: 0.7, hats: 0.3 }, { from: 1, to: 2, pad: 0.6, hats: 0.45, bass: 0.4 }, { from: 2, to: 5, kick: 0.75, hats: 0.6, bass: 0.65, pad: 0.55 }, { from: 5, to: 7, pad: 0.7, hats: 0.3 }],
+    sections: [{ from: 0, to: 1, pad: 0.7, hats: 0.3 }, { from: 1, to: 2, pad: 0.6, hats: 0.45, bass: 0.4 }, { from: 2, to: 5.5, kick: 0.75, hats: 0.6, bass: 0.65, pad: 0.55 }, { from: 5.5, to: 8, pad: 0.7, hats: 0.3 }], // bars: the beat from the action to the number's line; pads for the thanks and the end card
   };
   const STATES = [[0, 'One tap'], [T.tap, 'Tap'], [T.one, 'One plant'], [T.lift[0], 'Lift'], [T.zoom[0], 'Many'], [T.count[1], 'The milestone'], [T.thanks, 'Thanks'], [T.close[0], 'End card']];
   window.template = { fps: FPS, duration: DURATION, sizes: { '9:16': [1080, 1920] }, width: W, height: H, defaults: () => ({ size: '9:16', ...DEFAULTS }), fields: FIELDS, states: STATES, prepare, seek: (t, values) => seek(t, values), cues, music,
-    keyTimes: [0.3, 1.2, 2.0, 2.4, 3.2, 4.3, 5.2, 6.2, 7.0, 7.9, 8.6, 9.6, 10.8, 11.4, 12.2, 13.2] };
+    keyTimes: [0.3, 1.2, 2.0, 2.4, 3.2, 4.3, 5.2, 6.2, 7.0, 7.9, 8.6, 9.6, 10.8, 11.4, 12.2, 13.2].map(at) };
   const q = new URLSearchParams(location.search);
   if (window.parent === window && !q.has('render')) prepare().then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION, {}); requestAnimationFrame(loop); }; loop(); });
 })();

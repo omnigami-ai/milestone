@@ -23,6 +23,7 @@
 //     tempo: the film's BPM; a song within 10% of it is time-stretched to match (atempo, pitch kept)
 //     stems: a folder of the song's stems (names with 'drum' or 'perc' are the drums), or false for none
 //     ending (s): splice into the song's own ending at this time instead
+//     fade (s): close and fade over this long from half a second after the landing, silent after (default: to 0.3 s before the end)
 import { spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
@@ -183,7 +184,7 @@ function sfxKey(buf, n) {
   return key;
 }
 
-export async function fitSong(file, { duration, sfx = null, bpm, downbeat, from = 0, stems, ending, tempo, land } = {}) {
+export async function fitSong(file, { duration, sfx = null, bpm, downbeat, from = 0, stems, ending, tempo, land, fade } = {}) {
   // the beat from the kick and bass (under 150 Hz): in a straight-eighths groove the hats sound as
   // often as the kick, and a grid from every onset can lock onto the off-beats
   const [m22] = await decode(file, 22050, 1), low = biquad(m22, 'lp', 150, 22050);
@@ -234,7 +235,7 @@ export async function fitSong(file, { duration, sfx = null, bpm, downbeat, from 
     if (start + duration > end) throw new Error(`the song ends ${(start + duration - end).toFixed(1)} s too soon for this film from ${start.toFixed(2)} s: use an earlier --from`);
     // a short film gets a shorter tail: at most 45% of it
     // or on the film's own landing (`land`, film seconds), at the bar line nearest it
-    const T = land !== undefined ? Math.round(land / bar) * bar : Math.floor((duration - Math.min(TAIL, duration * 0.45)) / bar + 1e-6) * bar, Ti = Math.round(T * SR), stop = duration - 0.3;
+    const T = land !== undefined ? Math.round(land / bar) * bar : Math.floor((duration - Math.min(TAIL, duration * 0.45)) / bar + 1e-6) * bar, Ti = Math.round(T * SR), stop = fade ? Math.min(duration - 0.3, T + 0.5 + fade) : duration - 0.3;
     if (T < bar) throw new Error(`the film (${duration} s) is too short for an ending after a whole bar (${bar.toFixed(2)} s)`);
     const dir = stems === undefined ? file.replace(/\.[^./]+$/, '') + '-stems' : stems;
     const st = dir && existsSync(dir) ? await loadStems(dir, r) : null;

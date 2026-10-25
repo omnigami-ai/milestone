@@ -13,20 +13,23 @@ reached, shown as the one action it counts, done once, then multiplied.
 - **The number** rolls from 1, slowly then fast (an exponent curve), lands on exactly the milestone with a small pop, and holds with its line; the field dims behind it. Then the thanks, in the italic accent.
 - **The close:** the field lights up again and shrinks, its corners rounding, into the app's icon; it turns the icon's colour as it shrinks, fully before it lands; the mark (the app's own cream mark, at 62.5 % of the tile, centred as the app icon has it) springs in; the name and tagline rise.
 - **Text rises out of a mask line** and leaves through the top; no line rises into the one above.
+- **Room where the viewer needs it.** The film keeps its pace, with no pauses for their own sake: the counter, the field and the close are the product's own result multiplying and run straight through. The room goes where the viewer has something to find or read (the founder, 2026-10-22): a beat after the phone rises before the touch settles on the button (the eye finds it first; the touch then rests 0.45 s and taps), a beat on "One plant, watered." before it lifts, a beat on the number and its line before the thanks, and a beat on the thanks before the words leave. Each line holds at least a second once it has landed, about a quarter second a word. A hold is simply still.
 
-## The beats (120 BPM; t = when it starts)
+## The beats (120 BPM, 32 beats, 16 s; t = when it starts)
+
+The film's `T` is written on the original 14 s grid and shifted by `INSERTS` (a beat each before 1.5, 4.3, 9.4 and 10.7 s): these are the times it plays at.
 
 | t (s) | State | What happens |
 |---|---|---|
 | 0.3 | "One tap." | rises; the phone rises in with the screen before the action (0.45) |
-| 1.55 | touch | a soft touch settles on the button |
-| 2.0 | tap | the button sinks and lights; the result fills (2.05–3.15); the camera pushes in on it (to 1.4×) |
-| 3.18 | done | the real screen after the action; "One plant, watered." (3.37) |
-| 4.4 | lift | the result comes forward and to the middle; the phone falls back out of focus and sinks (to 5.7) |
-| 5.1 | many | the field grows ring by ring; the camera pulls back (5.2–8.0) through the lens |
-| 5.3 | the number | rolls from 1 to the milestone (to 7.9); its line (8.1); the thanks (9.45) |
-| 10.75 | out | the words leave |
-| 10.85 | close | the field closes into the icon, turning green as it goes (to 11.75); the mark (11.8); the name (12.2); the tagline (12.5); held to 14 |
+| 2.05 | touch | a beat after the phone lands, a soft touch settles on the button |
+| 2.5 | tap | the button sinks and lights; the result fills (2.55–3.65); the camera pushes in on it (to 1.4×) |
+| 3.68 | done | the real screen after the action; "One plant, watered." (3.87), held 1.2 s |
+| 5.4 | lift | the result comes forward and to the middle; the phone falls back out of focus and sinks (to 6.7) |
+| 6.1 | many | the field grows ring by ring; the camera pulls back (6.2–9.0) through the lens |
+| 6.3 | the number | rolls from 1 to the milestone (to 8.9); its line (9.1), read 1.5 s; the thanks (10.95), read 1.5 s |
+| 12.75 | out | the words leave |
+| 12.85 | close | the field closes into the icon, turning green as it goes (to 13.75); the mark (13.8); the name (14.2); the tagline (14.5); held to 16 |
 
 ## Type
 
@@ -43,8 +46,10 @@ reached, shown as the one action it counts, done once, then multiplied.
 A `pop` on each line, a `tap` on the action, `swish`es on the phone's moves,
 the lift, the pull-back and the close (with their `motion`), ten `tick`s
 quickening with the counter, a stronger `pop` as it lands. No impacts or
-risers. A 120 BPM bed: quiet, the beat in from the action to the number,
-pads for the thanks and the end card. About −14 LUFS.
+risers. The skill's own song (`music/song.mp3`, bright, uplifting electro-pop at
+120 BPM), landing one hit near the end as its drums stop and the rest fades;
+with `--music`, the synthesised 120 BPM score instead: quiet, the beat in from
+the action to the number, pads for the thanks and the end card. About −14 LUFS.
 
 The score's sound is `music.style`: here `'organic'` (plucked strings, a marimba, a shaker), as the reference's plants or botanicals brand has it. For the user's product, pick by what it is: `'organic'` for plants, food and drink, and other natural or handmade things; `'synth'` (oscillators, the default) for software and tools; `'felt'` (a sparse felt piano over a sub bass and a light kit) for a quiet, minimal film. In a break (`music.breaks`) the drums, bass and lead stop and the chords play on; the film's name seeds the key (always major), the progressions and the patterns.
 
