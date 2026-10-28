@@ -8,9 +8,19 @@
 //     --times 0,1.5,3        stills at these times ('key': the film's own template.keyTimes)
 //     --phone                one frame a second at 360 px wide, tiled: the phone-size check
 //     --strip 4.2            12 consecutive frames starting at 4.2 s: catches pops and overlaps
-//     --review               a strip (every other frame, 0.8 s) around every cut and key time, for a motion reviewer
+//     --review               a strip (every other frame, 0.8 s) around every cut and key time, for a motion reviewer;
+//                            and for every UI change the film lists (template.uiChanges: [{ t, rect: [x, y, w, h],
+//                            frames }] in the frame's px, or a function of the values giving them per size), every
+//                            frame from two before t to `frames` after (default 14), cropped to the rect at full
+//                            size: ui-<t>.png beside the strips (no rect: the frames kept full size, tiled at half)
 //     --check                determinism: render frames twice, in different orders, compare pixels; then the
-//                            film's own template.selfChecks(), if it has any
+//                            film's own template.selfChecks(), if it has any (the gate for npm run check)
+//     --check-fresh          stricter: regular samples and key times, then reverse in a fresh, prepared page, so a
+//                            frame drawn first there (an image's first draw) is compared with the same frame drawn
+//                            after others; five approved films fail it by a few pixels (2026-10-28), and a new film
+//                            must pass it (make-skill)
+//     --check-full           every frame at the size's fps, then reverse in a fresh, prepared page
+//                            (overrides --times/--every); the deepest, slowest determinism check
 //     --video                every frame at the film's fps (template.fpsBySize[size] if set), encoded to <name>.mp4;
 //                            a film's length is template.duration, or template.durationBySize[size] if set (and its
 //                            score template.music, or template.musicBySize[size])
@@ -90,14 +100,21 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await puppeteer.launch({ executablePath: requireChrome(), headless: true, args: ['--force-color-profile=srgb', '--disable-lcd-text', '--font-render-hinting=none', ...chromeArgs()] });
 let failed = false;
 const stressProblems = [];
+const determinism = [];
 try {
-  const page = await browser.newPage();
-  page.on('pageerror', (e) => { console.error('film error:', e.message); failed = true; });
-  page.on('console', (m) => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) console.error('film console:', m.text()); }); // missing files are reported below, by URL
-  page.on('requestfailed', (r) => console.error('could not load:', r.url()));
-  page.on('response', (r) => { if (r.status() >= 400 && !r.url().endsWith('favicon.ico')) console.error(`missing (${r.status()}):`, r.url().replace(origin, '')); });
-  if (flag('stress')) await page.evaluateOnNewDocument(recordText);
-  await page.goto(`${origin}/index.html?render=1`, { waitUntil: 'load' });
+  const openPage = async () => {
+    const page = await browser.newPage();
+    try {
+      page.on('pageerror', (e) => { console.error('film error:', e.message); failed = true; });
+      page.on('console', (m) => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) console.error('film console:', m.text()); }); // missing files are reported below, by URL
+      page.on('requestfailed', (r) => console.error('could not load:', r.url()));
+      page.on('response', (r) => { if (r.status() >= 400 && !r.url().endsWith('favicon.ico')) console.error(`missing (${r.status()}):`, r.url().replace(origin, '')); });
+      if (flag('stress')) await page.evaluateOnNewDocument(recordText);
+      await page.goto(`${origin}/index.html?render=1`, { waitUntil: 'load' });
+      return page;
+    } catch (e) { await page.close(); throw e; }
+  };
+  const page = await openPage();
   const meta = await page.evaluate(() => {
     const T = window.template;
     return T ? { fps: T.fps, fpsBySize: T.fpsBySize || null, duration: T.duration, durationBySize: T.durationBySize || null, baseDuration: T.duration, musicBySize: T.musicBySize || null, baseMusic: T.music || null, sizes: Object.keys(T.sizes), hasCues: typeof T.cues === 'function', music: T.music || null, cuts: T.cuts || [], shutters: T.shutters || [], keyTimes: T.keyTimes || [], encode: T.encode || null } : null;
@@ -124,9 +141,10 @@ try {
       for (const [i, t] of times.entries()) await writeFile(path.join(d, `${String(i).padStart(3, '0')}.png`), png(await frame(t)));
       return d;
     };
-    const tile = async (d, width, cols, file) => {
+    const tile = async (d, width, cols, file, crop) => { // crop: [w, h, x, y] at full size, in place of scaling to width
       const count = (await import('node:fs')).readdirSync(d).length;
-      await run('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', '1', '-i', path.join(d, '%03d.png'), '-vf', `scale=${width}:-1,tile=${cols}x${Math.ceil(count / cols)}:padding=4:color=white`, '-frames:v', '1', file]);
+      const fit = crop ? `crop=${crop.join(':')}` : `scale=${width}:-1`;
+      await run('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', '1', '-i', path.join(d, '%03d.png'), '-vf', `${fit},tile=${cols}x${Math.ceil(count / cols)}:padding=4:color=white`, '-frames:v', '1', file]);
       console.log(`wrote ${file}`);
     };
     const range = (step) => { const out = []; for (let t = 0; t < meta.duration - 1e-9; t += step) out.push(+t.toFixed(4)); return out; };
@@ -136,15 +154,34 @@ try {
     else if (opt('times')) times = opt('times').split(',').map(Number);
     else if (opt('every')) times = range(Number(opt('every')));
 
-    if (flag('check')) {
-      const list = times.length ? times : range(0.37);
+    if (flag('check') || flag('check-fresh') || flag('check-full')) {
+      const started = performance.now();
+      const full = flag('check-full'), fresh = full || flag('check-fresh');
+      const list = full ? Array.from({ length: Math.round(meta.duration * fps) }, (_, i) => i / fps)
+        : times.length ? times : fresh ? [...new Set([...range(0.37), ...meta.keyTimes])].sort((a, b) => a - b) : range(0.37);
       const hash = (b) => createHash('sha256').update(b).digest('hex');
       const first = new Map();
       for (const t of list) first.set(t, hash(png(await frame(t))));
-      let bad = 0;
-      for (const t of [...list].reverse()) if (hash(png(await frame(t))) !== first.get(t)) { bad++; console.log(`${size}: frame at ${t}s differs`); }
-      console.log(bad ? `${size} determinism: FAIL (${bad} of ${list.length} frames differ)` : `${size} determinism: pass (${list.length} frames, two orders)`);
-      if (bad) failed = true;
+      // The fresh checks run the second order in a new page: the original page would reuse its decoded images, canvas
+      // rasters and caches, hiding first-draw differences. The film's own prepare() runs there before any seek.
+      const reverse = fresh ? await openPage() : page;
+      const mismatches = [];
+      let prepareSeconds;
+      try {
+        const preparing = performance.now();
+        if (fresh) await reverse.evaluate((v) => window.template.prepare(v), values);
+        prepareSeconds = (performance.now() - preparing) / 1000;
+        for (const t of [...list].reverse()) {
+          const data = await reverse.evaluate((t, v) => window.template.seek(t, v).toDataURL('image/png'), t, values);
+          if (hash(png(data)) !== first.get(t)) { mismatches.push(t); console.log(`${size}: frame at ${t}s differs`); }
+        }
+      } finally { if (fresh) await reverse.close(); }
+      const seconds = (performance.now() - started) / 1000;
+      determinism.push({ size, full, frames: list.length, mismatches, seconds, prepareSeconds });
+      await writeFile(path.join(outDir, 'determinism.json'), JSON.stringify(determinism, null, 2));
+      const cost = `${seconds.toFixed(2)} s${fresh ? ', reverse in a fresh page' : ''}`;
+      console.log(mismatches.length ? `${size} determinism: FAIL (${mismatches.length} of ${list.length} frames differ; ${cost})` : `${size} determinism: pass (${list.length} frames, two orders; ${cost})`);
+      if (mismatches.length) failed = true;
       // a film's own checks (template.selfChecks: [{ name, ok, detail }]), e.g. that every lifted element has a real
       // empty-slot capture and leaves nothing of itself behind
       const own = await page.evaluate(async (v) => (window.template.selfChecks ? await window.template.selfChecks(v) : null), values);
@@ -173,6 +210,20 @@ try {
       await mkdir(dir, { recursive: true });
       for (const t0 of at) await tile(await stills('strip', Array.from({ length: 12 }, (_, i) => t0 + (2 * i) / fps)), 320, 6, path.join(dir, `${t0.toFixed(2).padStart(6, '0')}.png`));
       console.log(`wrote ${at.length} review strips to ${dir}`);
+      // UI changes, every frame at full size: the founder reviews them frame by frame, and a box round a lifted label, a
+      // doubled word, a slid strip or a fade between captures lives in one or two frames that every-other-frame skips
+      const changes = await page.evaluate((v) => { const u = window.template.uiChanges; return (typeof u === 'function' ? u(v) : u) || []; }, values);
+      const [fw, fh] = await page.evaluate((s) => window.template.sizes[s], size);
+      for (const c of changes.map((c) => (typeof c === 'number' ? { t: c } : c))) {
+        const f0 = Math.round(c.t * fps) - 2, label = `ui-${c.t.toFixed(2).padStart(5, '0')}`;
+        const times = Array.from({ length: (c.frames ?? 14) + 3 }, (_, i) => (f0 + i) / fps).filter((t) => t >= 0 && t < meta.duration);
+        if (c.rect) {
+          const x = Math.max(0, Math.round(c.rect[0])), y = Math.max(0, Math.round(c.rect[1]));
+          const w = Math.min(fw - x, Math.round(c.rect[2])), h = Math.min(fh - y, Math.round(c.rect[3]));
+          await tile(await stills('strip', times), 0, Math.max(1, Math.min(8, Math.floor(2400 / (w + 4)))), path.join(dir, `${label}.png`), [w, h, x, y]);
+        } else await tile(await stills(label, times), Math.round(fw / 2), 4, path.join(dir, `${label}.png`));
+      }
+      if (changes.length) console.log(`wrote ${changes.length} UI-change strips (every frame${changes.every((c) => c.rect) ? ', full size' : ''}) to ${dir}`);
     }
     if (opt('poster')) {
       const file = path.join(outDir, `${name}-poster.png`);
