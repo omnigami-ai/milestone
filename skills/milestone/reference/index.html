@@ -29,8 +29,8 @@
   const DURATION = at(28 * BEAT); // 120 BPM, 32 beats, 16 s
   const W = 1080, H = 1920;
   const canvas = document.getElementById('c');
-  const g = canvas.getContext('2d', { willReadFrequently: true });
-  const helper = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d', { willReadFrequently: true })]; };
+  const g = kit.textContext(canvas.getContext('2d', { willReadFrequently: true }));
+  const helper = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, kit.textContext(c.getContext('2d', { willReadFrequently: true }))]; };
   const [fieldC, FL] = helper(1080, 1920), [blurC, BL] = helper(1080, 1920), [phoneC, PL] = helper(1080, 1920); // the field, its blurred copy, the phone as it falls back
 
   // ---------- Fernwise: colour, type, mark (cast/fernwise/brand.md) ----------
@@ -134,7 +134,7 @@
   const GRID = 120, GAP = 1.12;                          // the grid's tiles per side, and its step in portrait sizes
   const plantAt = (i, j) => PLANTS[(((i * 3 + j * 5 + ((i * j) % 3)) % 7) + 7) % 7];
   // a portrait at any size, from the nearest pre-scaled copy at or above it
-  function portrait(c, id, x, y, s) { const M = SCR.mips[id], m = M.find((q) => q.width >= s) || M[M.length - 1]; c.drawImage(m, x - s / 2, y - s / 2, s, s); }
+  function portrait(c, id, x, y, s) { s = kit.copyText(s); const M = SCR.mips[id], m = M.find((q) => q.width >= s) || M[M.length - 1]; c.drawImage(m, x - s / 2, y - s / 2, s, s); }
   // the size of one portrait in frame px: from Monty's on the page to a speck, eased in log space
   const liftAt = (t) => { const q = clamp((t - T.lift[0]) / (T.lift[1] - T.lift[0])); return 1 - (1 - q) ** 3; };
   function tileSize(t) {
@@ -183,7 +183,7 @@
   }
 
   // ---------- type ----------
-  function text(c, s, x, y, font, colour, align = 'left', base = 'middle') {
+  function text(c, s, x, y, font, colour, align = 'left', base = 'middle') { s = kit.copyText(s);
     c.font = font; c.fillStyle = colour; c.textAlign = align;
     if (base === 'middle') window.kit.centreText(c, s, x, y); else { c.textBaseline = base; c.fillText(s, x, y); }
   }
@@ -305,9 +305,9 @@
     sections: [{ from: 0, to: 1, pad: 0.7, hats: 0.3 }, { from: 1, to: 2, pad: 0.6, hats: 0.45, bass: 0.4 }, { from: 2, to: 5.5, kick: 0.75, hats: 0.6, bass: 0.65, pad: 0.55 }, { from: 5.5, to: 8, pad: 0.7, hats: 0.3 }], // bars: the beat from the action to the number's line; pads for the thanks and the end card
   };
   const STATES = [[0, 'One tap'], [T.tap, 'Tap'], [T.one, 'One plant'], [T.lift[0], 'Lift'], [T.zoom[0], 'Many'], [T.count[1], 'The milestone'], [T.thanks, 'Thanks'], [T.close[0], 'End card']];
-  window.template = { fps: FPS, duration: DURATION, sizes: { '9:16': [1080, 1920] }, width: W, height: H, defaults: () => ({ size: '9:16', ...DEFAULTS }), fields: FIELDS, states: STATES, prepare, seek: (t, values) => seek(t, values), cues, music,
-    keyTimes: [0.3, 1.2, 2.0, 2.4, 3.2, 4.3, 5.2, 6.2, 7.0, 7.9, 8.6, 9.6, 10.8, 11.4, 12.2, 13.2].map(at) };
+  window.template = kit.film({ fps: FPS, duration: DURATION, sizes: { '9:16': [1080, 1920] }, width: W, height: H, defaults: () => ({ size: '9:16', ...DEFAULTS }), fields: FIELDS, states: STATES, prepare, seek: (t, values) => seek(t, values), cues, music,
+    keyTimes: [0.3, 1.2, 2.0, 2.4, 3.2, 4.3, 5.2, 6.2, 7.0, 7.9, 8.6, 9.6, 10.8, 11.4, 12.2, 13.2].map(at) });
   const q = new URLSearchParams(location.search);
-  if (window.parent === window && !q.has('render')) prepare().then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION, {}); requestAnimationFrame(loop); }; loop(); });
+  if (window.parent === window && !q.has('render')) window.template.prepare().then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION, {}); requestAnimationFrame(loop); }; loop(); });
 })();
 </script>

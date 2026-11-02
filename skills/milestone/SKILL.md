@@ -5,6 +5,8 @@ description: Make a 16-second milestone video for a product on its real screens 
 
 # Milestone
 
+For Japanese, Korean or Chinese product pages, keep the copy in that language and set the film’s `lang` to the page’s `<html lang>`; bundled Noto faces and phrase breaks handle the text.
+
 You make a 16-second film for a number the product has reached. It starts
 with the one action the number counts, done once on the product's real
 screen ("One tap." "Water Monty": his ring fills, "One plant, watered."),
