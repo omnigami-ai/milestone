@@ -1,6 +1,9 @@
 ---
 name: milestone
-description: Make a 16-second milestone video for a product on its real screens - one tap on the action the product counts, that one result lifting out of the app and multiplying into thousands as a counter rolls to the number, a thank-you, and the field of results closing into the app's icon. Renders a tall (9:16) MP4 with sound. Use when the user asks for a milestone, "we hit N users", thank-you, anniversary or celebration video for their product.
+description: >-
+  Milestone video for a product: one tap on the thing it counts, that result multiplying into thousands as a counter
+  rolls to your number, a thank-you, then your app's icon. 16 seconds, tall, with sound. Use when the user asks for a
+  milestone, "we hit N users", thank-you, anniversary or celebration video.
 ---
 
 # Milestone
