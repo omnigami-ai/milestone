@@ -70,6 +70,7 @@ Read `style.md` before you start and `critique.md` before you judge.
 - **Keep the motion** (`style.md`): press states, one-step moves, nothing shown twice.
 - **Engine rules:** `seek(t)` paints from its arguments only; every file inside `film/`.
 - **Only the user's brand;** the phone is the reference's unbranded photograph.
+- **Phone corners:** the photograph has a roughly 50 px display radius; use a 49 px backing mask at its native 490 px opening. Scale that radius with the opening (`49 * SW / 490`), rather than adding a tighter second mask. Check all four corners in a complete device view, even when the output crops its foot.
 
 ## Files
 

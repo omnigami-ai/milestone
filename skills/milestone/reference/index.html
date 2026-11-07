@@ -60,7 +60,8 @@
 
   // ---------- the phone (an unbranded phone, photographed, its screen cut out) and Monty's page ----------
   const PHONE_SCREEN = [25, 26, 490, 1118], U = 1.7;
-  const SW = 390 * U, SH = SW * PHONE_SCREEN[3] / PHONE_SCREEN[2], SR = 44 * U;
+  // Match the photograph's 49 px aperture mask at its native 490 px width; the photograph supplies the final edge.
+  const SW = 390 * U, SH = SW * PHONE_SCREEN[3] / PHONE_SCREEN[2], SR = 49 * SW / PHONE_SCREEN[2];
   const SCR = { img: {}, scale: 4, rects: {}, caps: {}, mips: {} };
   const PLANTS = ['monty', 'pickles', 'fernando', 'olive', 'spike', 'basil', 'dot'];
   // the page while the ring fills: one capture per 5 % of the ring, then the real watered page
