@@ -705,17 +705,31 @@ window.kit = { hasCJK, textLanguage, prepareText, useText, copyText, font, lineP
 // it drives the film by message: { omni: 'load', values } prepares it and is
 // answered with { omni: 'ready', … }; { omni: 'seek', t, values } paints a frame.
 if (window.parent !== window) {
-  let lastSeek = 0, pending = 0, preparing = Promise.resolve();
+  let lastSeek = 0, pending = 0, preparing = Promise.resolve(), frameValues;
   window.addEventListener('message', async (e) => {
     const d = e.data, T = window.template;
     if (e.source !== window.parent || !d || typeof d.omni !== 'string' || !T) return;
     const values = { ...T.defaults(), ...(d.values || {}) };
     try {
       if (d.omni === 'load') {
+        if(T.frameSources?.length)await window.omniPrepareSources?.(T.frameSources);
         await T.prepare(values);
+        if(typeof T.prepareFrame==='function')frameValues=JSON.stringify(values);
         window.parent.postMessage({ omni: 'ready', duration: T.duration, durationBySize: T.durationBySize || null, fps: T.fps, sizes: Object.keys(T.sizes || {}), fields: T.fields || [], states: T.states || [], defaults: T.defaults() }, '*');
       } else if (d.omni === 'seek') {
         const request = ++lastSeek;
+        if(typeof T.prepareFrame==='function'){
+          // Serial preparation, outside seek. Obsolete scrub/play requests are
+          // discarded before loading and again before drawing their pixels.
+          preparing=preparing.catch(()=>{}).then(async()=>{
+            if(request!==lastSeek)return;
+            const key=JSON.stringify(values);
+            if(key!==frameValues){await T.prepare(values);frameValues=key;}
+            await T.prepareFrame([d.t],values);
+            if(request===lastSeek)T.seek(d.t,values);
+          });
+          await preparing;return;
+        }
         // Text-only edits can introduce a face/model after the initial Latin
         // load. Finish that preparation outside seek, discard obsolete draws.
         const headline=stringsIn(values).filter(hasCJK).join('\n');

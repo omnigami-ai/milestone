@@ -43,3 +43,22 @@ export function requireChrome() {
   }
   return chrome;
 }
+
+// A Chrome shutdown can stall after rendering has finished (including fresh
+// check browsers). Bound teardown and reap only this Puppeteer-owned process.
+export async function closeChrome(browser, timeoutMs = 5000) {
+  let timer;
+  const closing = browser.close().then(() => true, () => false);
+  const closed = await Promise.race([closing, new Promise(resolve => {
+    timer = setTimeout(() => resolve(false), timeoutMs);
+  })]);
+  clearTimeout(timer);
+  if (!closed) {
+    const child=browser.process();
+    child?.kill('SIGKILL');
+    // A browser helper can inherit Chrome's pipes and outlive the root
+    // process. Release these owned streams too, so Node can finish teardown.
+    for(const stream of child?.stdio||[])stream?.destroy?.();
+    browser.disconnect();
+  }
+}

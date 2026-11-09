@@ -3,6 +3,7 @@
 import { createServer } from 'node:http';
 import { readFile, writeFile, realpath, stat, rename } from 'node:fs/promises';
 import path from 'node:path';
+import {prepareVideoSources} from './video-frames.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => { const i = args.indexOf('--' + name); return i < 0 ? fallback : args[i + 1]; };
@@ -14,11 +15,17 @@ const html = await readFile(new URL('./preview.html', import.meta.url));
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.mp4': 'video/mp4' };
 let origin;
 const server = createServer(async (req, res) => {
-  const reply = (code, body, type = 'text/plain') => res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' }).end(body);
+  const reply = (code, body, type = 'text/plain', cors = false) => res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store', ...(cors ? {'access-control-allow-origin':'*'} : {}) }).end(body);
   // The editor is for this localhost page, including its save endpoint.
   if (req.headers.host !== new URL(origin).host) return reply(403, 'Invalid host');
   try {
     const url = new URL(req.url, origin);
+    if (url.pathname === '/prepare-video' && req.method === 'GET') {
+      const sources=JSON.parse(url.searchParams.get('sources')||'[]');
+      if(!Array.isArray(sources))return reply(400,'Expected local video manifest paths');
+      await prepareVideoSources(film,sources);
+      return reply(200,'{}','application/json',true);
+    }
     if (url.pathname === '/values' && req.method === 'POST') {
       if (req.headers.origin !== origin || req.headers['content-type'] !== 'application/json') return reply(403, 'Save from the preview page');
       let body = '';
@@ -49,6 +56,16 @@ const server = createServer(async (req, res) => {
     const file = await realpath(path.resolve(root, relative));
     if (!file.startsWith(root + path.sep)) return reply(403, 'Outside the film');
     const body = await readFile(file);
+    // kit's iframe adapter calls this optional host hook before film preparation.
+    if (url.pathname === '/film/index.html') {
+      const adapter = `<script>
+        window.omniPrepareSources=async sources=>{
+          const r=await fetch('/prepare-video?'+new URLSearchParams({sources:JSON.stringify(sources)}));
+          if(!r.ok)throw Error('Could not prepare local video frames: '+await r.text());
+        };
+      <\/script>`;
+      return reply(200,body+adapter,'text/html',true);
+    }
     if (path.extname(file) === '.mp4') {
       let start = 0, end = body.length - 1;
       if (req.headers.range) {

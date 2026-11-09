@@ -31,6 +31,8 @@ Make a milestone video for https://your-product.com: we just passed 1,000,000 or
 
 The skill works on your computer. It runs the Node scripts in `skills/milestone/scripts/`: they open your product's pages in a local headless browser to capture its real screens, then render the film with that browser and ffmpeg, writing MP4s and an editable HTML film to your project. It sends nothing to omnigami or anyone else, and uses no network beyond loading your own product's pages and the fonts and assets in this folder.
 
+
+
 ## You need
 
 - Claude Code with Opus 5.5

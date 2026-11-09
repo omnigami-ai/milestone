@@ -103,8 +103,9 @@ function visible(e,shot) {
 }
 
 // Travel is measured, never declared by the film or inferred merely from a
-// nonzero transform. The same intact, locally fitted group must be present on
-// three consecutive frames, translating continuously with peers or a surface.
+// nonzero transform. The same intact, locally fitted text must be present on
+// three consecutive frames. A line with unchanged glyph geometry can travel
+// alone; locally rising rows still need independent moving-surface evidence.
 function travels(e,shot,previous,next,previous2,next2) {
   if (!identity(e.transform) || !inside(e.local,[0,0,shot.w,shot.h])) return false;
   if (Math.abs(e.transform[4])+Math.abs(e.transform[5]) < .01) return false;
@@ -148,7 +149,13 @@ function travels(e,shot,previous,next,previous2,next2) {
   const peers = shot.texts.filter(x=>same(x.transform,e.transform) && inside(x.local,[0,0,shot.w,shot.h]) &&
     trail.every((s,i)=>s.texts.some(p=>signature(p)===signature(x)&&same(p.transform,entries[i].transform))));
   const surface = (shot.surfaces || []).some(s=>same(s.transform,e.transform) && inside(e.local,s.local));
-  if (new Set(peers.map(x=>x.text)).size < 2 && !surface) return false;
+  // A chapter heading may enter before its staggered second line is visible.
+  // Its three identical local glyph records and continuous translation are
+  // sufficient evidence; requiring a peer mistakes that entrance for bad fit.
+  // This does not exempt changing local geometry, scale, isolated jumps or
+  // small clips (checked below).
+  const intactLine = entries.every(x=>signature(x)===key && inside(x.local,[0,0,shot.w,shot.h]));
+  if (new Set(peers.map(x=>x.text)).size < 2 && !surface && !intactLine) return false;
   for (const [i,entry] of (rising?entries:[e]).entries()) if (entry.clip && !inside(entry.box,entry.clip)) {
     // A travelling label's own small clip is a defect. The external viewport
     // may clip it; an outgoing native page may also be occluded by its incoming

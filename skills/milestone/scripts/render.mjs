@@ -9,6 +9,8 @@
 //     --phone                one frame a second at 360 px wide, tiled: the phone-size check
 //     --strip 4.2            12 consecutive frames starting at 4.2 s: catches pops and overlaps
 //     --review               a strip (every other frame, 0.8 s) around every cut and key time, for a motion reviewer;
+//     --review-events        write each size's declared UI/cut/key times and ROIs to <name>-events.json;
+//                            review-video.py uses these to review final encoded pixels without re-rendering 3D
 //                            and for every UI change the film lists (template.uiChanges: [{ t, rect: [x, y, w, h],
 //                            frames }] in the frame's px, or a function of the values giving them per size), every
 //                            frame from two before t to `frames` after (default 14), cropped to the rect at full
@@ -66,18 +68,40 @@
 //                            Boundary-audited films also check consecutive handoff frames, fail
 //                            default-copy faults and pops, and measure whole-layer translation
 //                            separately from clipping. Opaque incoming cards occlude outgoing text.
+//     --stress-window a:b    inspect only stress targets in [a,b), retaining their ±2-frame neighbours;
+//                            run adjacent windows for full coverage on slow hosts. Other actions stay full.
+//                            stress/coverage.json records planned and inspected times for every completed case.
+//     --draft                review: half output dimensions, one quarter of film sample counts (ceil, min 1),
+//                            WebGL supersampling 1 via template.quality; H.264 ultrafast. Same timing/audio.
+//                            Films keep logical dimensions; CPU output is downscaled. Names end in -draft.
+//     --frames a-b           inclusive, zero-based output frames; seek uses the original film time.
+//                            Writes <name>[-draft]-frames-a-b.mp4 and .render.json, no audio (splice copies it).
+//     --gpu                  require hardware ANGLE D3D11 (Windows host); --cpu forces software WebGL.
 //     --out dir              (default <film-dir>/../out)
+//
+// Optional streamed video contract (films without it keep their existing path):
+//   template.frameSources = ['assets/recording/index.json'] (v2 manifests made by
+//   video-frames.mjs/packVideo). Before prepare(), ffmpeg selects/scales the local
+//   MP4 into a rebuildable WebP cache under <film>/out/video-frames/. It is never
+//   part of a shipped skill. Two encoders bound preparation memory; disk grows
+//   with video length. cwebp -q 92 -m 4 preserves the former preparation pixels;
+//   Python Pillow with WebP support is the portable fallback at the same settings.
+//   await template.prepareFrame([t, ...], values) runs before EVERY draw path,
+//   including shutter samples, stress, and the reverse/fresh checks. Load/warm a
+//   bounded window there; seek stays synchronous, pure and performs no I/O.
+//   An unprepared seek must throw, never reuse the previous recording frame.
 import { createServer } from 'node:http';
-import { readFile, mkdir, writeFile, rm } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, rm, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import puppeteer from 'puppeteer-core';
-import { requireChrome, chromeArgs } from './chrome.mjs';
+import { requireChrome, chromeArgs, closeChrome } from './chrome.mjs';
 import { effects } from './sfx.mjs';
 import { compose, wav as toWav, LUFS as MUSIC_LUFS } from './music.mjs';
 import { fitSong } from './song.mjs';
 import { recordText, textProblems, textPops, motionKey } from './stress.mjs';
+import { prepareVideoSourcesIsolated } from './video-frames.mjs';
 
 // the sounds that say "it arrived": after a fitted song lands they're left out (see --audio)
 const RESULTS = new Set(['pop', 'ping', 'sparkle', 'chime']);
@@ -89,6 +113,18 @@ const args = process.argv.slice(2);
 const opt = (name, fallback) => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : fallback; };
 const flag = (name) => args.includes('--' + name);
 if (!args[0] || args[0].startsWith('--')) { console.error('usage: node scripts/render.mjs <film-dir> [options]'); process.exit(1); }
+const stressWindow = flag('stress-window') ? String(opt('stress-window')).split(':').map(Number) : null;
+if (stressWindow && (!flag('stress') || stressWindow.length !== 2 || !stressWindow.every(Number.isFinite) || stressWindow[0] < 0 || stressWindow[1] <= stressWindow[0])) {
+  console.error('--stress-window needs --stress and a finite increasing a:b interval with a >= 0');
+  process.exit(1);
+}
+const draft = flag('draft');
+const quality = draft ? 'draft' : 'full';
+const DRAFT_SAMPLE_FACTOR = 0.25; // matches engine/devices.js: each sample count, ceil, minimum one
+const frameRange = opt('frames')?.match(/^(\d+)-(\d+)$/)?.slice(1).map(Number);
+if (args.includes('--frames') && (!frameRange || frameRange[1] < frameRange[0] || !flag('video') || flag('audio-only'))) throw Error('--frames needs --video and an inclusive range a-b (0-based, a <= b)');
+if (flag('gpu') && flag('cpu')) throw Error('Choose --gpu or --cpu');
+const startedAt = performance.now();
 const dir = path.resolve(args[0]);
 const outDir = path.resolve(opt('out', path.join(dir, '..', 'out')));
 let saved = {};
@@ -102,52 +138,107 @@ const server = createServer(async (req, res) => {
   if (!file.startsWith(dir)) { res.writeHead(403).end(); return; }
   try {
     const body = await readFile(file);
-    res.writeHead(200, { 'content-type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream', 'access-control-allow-origin': '*' }).end(body);
+    res.writeHead(200, { 'content-type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream', 'access-control-allow-origin': '*', 'cache-control': 'no-store' }).end(body);
   } catch { res.writeHead(404).end(); }
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${server.address().port}`;
 
-const launchBrowser = () => puppeteer.launch({ executablePath: requireChrome(), headless: true, args: ['--force-color-profile=srgb', '--disable-lcd-text', '--font-render-hinting=none', ...chromeArgs()] });
-const browser = await launchBrowser();
+const launchBrowser = () => puppeteer.launch({ executablePath: requireChrome(), headless: true, protocolTimeout: 600000, args: ['--renderer-process-limit=1', '--force-color-profile=srgb', '--disable-lcd-text', '--font-render-hinting=none', ...chromeArgs(), ...(flag('gpu') ? ['--enable-gpu', '--force_high_performance_gpu', '--use-gl=angle', '--use-angle=d3d11', '--ignore-gpu-blocklist'] : flag('cpu') ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [])] });
+let browser = await launchBrowser();
 let failed = false;
 const stressProblems = [];
+const stressCoverage = [];
 const determinism = [];
+let browserClosed = false, streamedStats = null;
+const frameCollectors = new Map();
 try {
   const openPage = async (host = browser) => {
-    const page = await host.newPage();
+    const page = (await host.pages()).find(p=>p.url()==='about:blank') || await host.newPage();
     try {
+      // Reuse Chrome's initial tab and close any other unused tabs: a spare
+      // renderer adds substantial fixed RSS to a bounded video run.
+      for(const idle of await host.pages())if(idle!==page&&idle.url()==='about:blank')await idle.close();
       page.on('pageerror', (e) => { console.error('film error:', e.message); failed = true; });
       page.on('console', (m) => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) console.error('film console:', m.text()); }); // missing files are reported below, by URL
       page.on('requestfailed', (r) => console.error('could not load:', r.url()));
       page.on('response', (r) => { if (r.status() >= 400 && !r.url().endsWith('favicon.ico')) console.error(`missing (${r.status()}):`, r.url().replace(origin, '')); });
       if (flag('stress')) await page.evaluateOnNewDocument(recordText);
-      await page.goto(`${origin}/index.html?render=1`, { waitUntil: 'load' });
+      await page.goto(`${origin}/index.html?render=1${draft ? '&quality=draft' : ''}`, { waitUntil: 'load' });
+      await page.evaluate((quality) => { if (window.template) window.template.quality = quality; }, quality);
       return page;
     } catch (e) { await page.close(); throw e; }
   };
-  const page = await openPage();
+  let page = await openPage();
   const meta = await page.evaluate(() => {
     const T = window.template;
     return T ? { fps: T.fps, fpsBySize: T.fpsBySize || null, duration: T.duration, durationBySize: T.durationBySize || null, baseDuration: T.duration, musicBySize: T.musicBySize || null, baseMusic: T.music || null, sizes: Object.keys(T.sizes), hasCues: typeof T.cues === 'function', music: T.music || null, cuts: T.cuts || [], shutters: T.shutters || [], keyTimes: T.keyTimes || [], encode: T.encode || null } : null;
   });
+  const gpu = await page.evaluate(() => {
+    const c = document.createElement('canvas'), gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) return null;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return renderer;
+  });
+  if (flag('gpu') && (!gpu || !/nvidia/i.test(gpu) || /swiftshader|llvmpipe|software|basic render/i.test(gpu))) throw Error(`NVIDIA GPU required; got ${gpu}`);
+  console.log(`quality: ${quality}; WebGL: ${gpu || 'unavailable'}`);
   if (!meta) throw new Error('index.html did not set window.template');
+  const frameSources = await page.evaluate(() => window.template.frameSources || []);
+  const caches = await prepareVideoSourcesIsolated(dir, frameSources);
+  // Canvas resizing, PNG serialization and closed ImageBitmaps leave
+  // reclaimable backing stores in long QA runs as well as video exports.
+  // Collect only between frames, outside the film and its pure seek().
+  const collectFrameMemory = async (target = page) => {
+    if (!caches.length) return;
+    let state = frameCollectors.get(target);
+    if (!state) {
+      state = { session: await target.createCDPSession(), frames: 0 };
+      frameCollectors.set(target, state);
+    }
+    if (state.frames % 30 === 0) await state.session.send('Memory.simulatePressureNotification', { level: 'moderate' });
+    if (state.frames % 10 === 0) await state.session.send('HeapProfiler.collectGarbage');
+    state.frames++;
+  };
   const sizes = flag('all') ? meta.sizes : [opt('size', '16:9')];
   await mkdir(outDir, { recursive: true });
+  if (flag('stress')) {
+    await mkdir(path.join(outDir,'stress'),{recursive:true});
+    await rm(path.join(outDir,'stress','report.json'),{force:true});
+    await writeFile(path.join(outDir,'stress','coverage.json'),'[]\n');
+  }
 
   for (const size of sizes) {
     const values = { ...(await page.evaluate(() => window.template.defaults())), ...extra, size };
-    const name = size.replace(':', 'x');
+    const name = size.replace(':', 'x') + (draft ? '-draft' : '');
     // a film may set a length per size (template.durationBySize), e.g. an App Store cut held to Apple's 30 s
     meta.duration = (meta.durationBySize && meta.durationBySize[size]) || meta.baseDuration;
     meta.music = (meta.musicBySize && meta.musicBySize[size]) || meta.baseMusic; // and its score's sections and breaks
     // a film may set a frame rate per size (template.fpsBySize), e.g. 60 for social and 30 for a store cut
     const fps = (meta.fpsBySize && meta.fpsBySize[size]) || meta.fps;
+    const preparingSize = performance.now();
     await page.evaluate((v) => window.template.prepare(v), values);
-    const frame = (t) => page.evaluate((t, v) => window.template.seek(t, v).toDataURL('image/png'), t, values);
+    const prepareSeconds = (performance.now() - preparingSize) / 1000;
+    const captureFrame = async (t, host = page) => {
+      await collectFrameMemory(host);
+      return host.evaluate(async (t, v, draft) => {
+      await window.template.prepareFrame?.([t], v);
+      const c = window.template.seek(t, v);
+      if (!draft) return c.toDataURL('image/png');
+      const out = document.createElement('canvas');
+      out.width = Math.max(2, 2 * Math.round(c.width / 4)); out.height = Math.max(2, 2 * Math.round(c.height / 4));
+      const x = out.getContext('2d', { willReadFrequently: true }); x.imageSmoothingQuality = 'high';
+      x.drawImage(c, 0, 0, out.width, out.height); return out.toDataURL('image/png');
+    }, t, values, draft);
+    };
+    const frame = (t) => captureFrame(t);
     const png = (dataUrl) => Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64');
     // several times averaged into one frame, in the page (a film's extra motion-blur samples)
-    const frameAverage = (ts) => page.evaluate((ts, v) => {
+    const frameAverage = async (ts) => {
+      await collectFrameMemory();
+      return page.evaluate(async (ts, v, draft) => {
+      await window.template.prepareFrame?.(ts, v);
       let sum = null, w = 0, h = 0;
       for (const t of ts) {
         const c = window.template.seek(t, v); w = c.width; h = c.height;
@@ -158,8 +249,24 @@ try {
       const out = document.createElement('canvas'); out.width = w; out.height = h;
       const x = out.getContext('2d', { willReadFrequently: true }), img = x.createImageData(w, h);
       for (let i = 0; i < sum.length; i++) img.data[i] = Math.round(sum[i] / ts.length);
-      x.putImageData(img, 0, 0); return out.toDataURL('image/png');
-    }, ts, values);
+      x.putImageData(img, 0, 0);
+      if (draft) {
+        const small = document.createElement('canvas'); small.width = Math.max(2, 2 * Math.round(w / 4)); small.height = Math.max(2, 2 * Math.round(h / 4));
+        const sx = small.getContext('2d', { willReadFrequently: true }); sx.imageSmoothingQuality = 'high'; sx.drawImage(out, 0, 0, small.width, small.height); return small.toDataURL('image/png');
+      }
+      return out.toDataURL('image/png');
+    }, ts, values, draft);
+    };
+    if (flag('review-events')) {
+      const changes = await page.evaluate(v=>{const u=window.template.uiChanges;return (typeof u==='function'?u(v):u)||[];},values);
+      const dimensions = await page.evaluate(s=>window.template.sizes[s],size);
+      const events = [...changes,...meta.cuts.map(t=>({t})),...meta.keyTimes.map(t=>({t}))]
+        .filter(e=>Number.isFinite(e.t)&&e.t>=0&&e.t<meta.duration)
+        .map(e=>({t:e.t,rect:e.rect||[0,0,...dimensions]}));
+      const unique=[...new Map(events.map(e=>[JSON.stringify(e),e])).values()].sort((a,b)=>a.t-b.t);
+      if (!unique.length) throw Error('No declared review events');
+      await writeFile(path.join(outDir,`${name}-events.json`),JSON.stringify({size,duration:meta.duration,fps,events:unique},null,2));
+    }
     const stills = async (label, times) => {
       const d = path.join(outDir, `${name}-${label}`);
       await rm(d, { recursive: true, force: true });
@@ -188,21 +295,32 @@ try {
       const hash = (b) => createHash('sha256').update(b).digest('hex');
       const first = new Map();
       for (const t of list) first.set(t, hash(png(await frame(t))));
+      // Run the warm page's own checks before releasing it. Only PNG hashes
+      // survive the fresh comparison, never a second live phone/GPU tree.
+      const ownWarm = fresh ? await page.evaluate(async v => window.template.selfChecks ? await window.template.selfChecks(v) : null, values) : null;
       // Isolate the fresh page's GPU process as well: separate WebGL contexts in one Chrome process
       // can round transmission rendering differently. Each page still prepares its own assets before seeking.
-      const freshBrowser = fresh ? await launchBrowser() : null;
+      if (fresh) {
+        const collector = frameCollectors.get(page);
+        if (collector) { await collector.session.detach(); frameCollectors.delete(page); }
+        await closeChrome(browser);
+        browserClosed = true;
+        browser = await launchBrowser();
+        browserClosed = false;
+        page = await openPage();
+      }
       const mismatches = [];
       let prepareSeconds;
-      try {
-        const reverse = fresh ? await openPage(freshBrowser) : page;
+      {
+        const reverse = page;
         const preparing = performance.now();
         if (fresh) await reverse.evaluate((v) => window.template.prepare(v), values);
         prepareSeconds = (performance.now() - preparing) / 1000;
         for (const t of [...list].reverse()) {
-          const data = await reverse.evaluate((t, v) => window.template.seek(t, v).toDataURL('image/png'), t, values);
+          const data = await captureFrame(t, reverse);
           if (hash(png(data)) !== first.get(t)) { mismatches.push(t); console.log(`${size}: frame at ${t}s differs`); }
         }
-      } finally { if (freshBrowser) await freshBrowser.close(); }
+      }
       const seconds = (performance.now() - started) / 1000;
       determinism.push({ size, full, frames: list.length, mismatches, seconds, prepareSeconds });
       await writeFile(path.join(outDir, 'determinism.json'), JSON.stringify(determinism, null, 2));
@@ -211,7 +329,7 @@ try {
       if (mismatches.length) failed = true;
       // a film's own checks (template.selfChecks: [{ name, ok, detail }]), e.g. that every lifted element has a real
       // empty-slot capture and leaves nothing of itself behind
-      const own = await page.evaluate(async (v) => (window.template.selfChecks ? await window.template.selfChecks(v) : null), values);
+      const own = fresh ? ownWarm : await page.evaluate(async (v) => (window.template.selfChecks ? await window.template.selfChecks(v) : null), values);
       if (own) {
         const fails = own.filter((c) => !c.ok);
         for (const c of fails) console.log(`${size}: ${c.name}: FAIL ${c.detail || ''}`);
@@ -244,13 +362,14 @@ try {
       // doubled word, a slid strip or a fade between captures lives in one or two frames that every-other-frame skips
       const changes = await page.evaluate((v) => { const u = window.template.uiChanges; return (typeof u === 'function' ? u(v) : u) || []; }, values);
       const [fw, fh] = await page.evaluate((s) => window.template.sizes[s], size);
+      const reviewScale = draft ? 0.5 : 1;
       for (const c of changes.map((c) => (typeof c === 'number' ? { t: c } : c))) {
         const f0 = Math.round(c.t * fps) - 2, label = `ui-${c.t.toFixed(2).padStart(5, '0')}`;
         const times = Array.from({ length: (c.frames ?? 14) + 3 }, (_, i) => (f0 + i) / fps).filter((t) => t >= 0 && t < meta.duration);
         if (c.rect) {
           const x = Math.max(0, Math.round(c.rect[0])), y = Math.max(0, Math.round(c.rect[1]));
           const w = Math.min(fw - x, Math.round(c.rect[2])), h = Math.min(fh - y, Math.round(c.rect[3]));
-          await tile(await stills('strip', times), 0, Math.max(1, Math.min(8, Math.floor(2400 / (w + 4)))), path.join(dir, `${label}.png`), [w, h, x, y]);
+          await tile(await stills('strip', times), 0, Math.max(1, Math.min(8, Math.floor(2400 / (w + 4)))), path.join(dir, `${label}.png`), [w, h, x, y].map(n => Math.round(n * reviewScale)));
         } else await tile(await stills(label, times), Math.round(fw / 2), 4, path.join(dir, `${label}.png`));
       }
       if (changes.length) console.log(`wrote ${changes.length} UI-change strips (every frame${changes.every((c) => c.rect) ? ', full size' : ''}) to ${dir}`);
@@ -265,14 +384,18 @@ try {
 
     const audioOnly = flag('audio-only');
     if (flag('video') || audioOnly) {
-      const silent = path.join(outDir, `${name}-silent.mp4`), file = path.join(outDir, audioOnly ? `${name}-${opt('audio') ? 'song' : 'score'}.m4a` : `${name}.mp4`);
-      const sub = Math.max(1, Number(opt('blur', 1)));
+      const videoStarted = performance.now();
+      const suffix = frameRange ? `-frames-${frameRange.join('-')}` : '';
+      const silent = path.join(outDir, `${name}${suffix}-silent.mp4`), file = path.join(outDir, audioOnly ? `${name}-${opt('audio') ? 'song' : 'score'}.m4a` : `${name}${suffix}.mp4`);
+      const sub = Math.max(1, Math.ceil(Number(opt('blur', 1)) * (draft ? DRAFT_SAMPLE_FACTOR : 1)));
+      if (!Number.isInteger(sub) || !Number.isFinite(sub)) throw Error('--blur must be a positive sample count');
       // --lossless retains all chroma for archival decks; normal delivery keeps its existing encoding.
       // the film's delivery spec for this size, if it has one: a set bitrate, profile and level
       if (flag('deck-video') && flag('lossless')) throw Error('--deck-video and --lossless are separate delivery/archive profiles');
-      const spec = flag('deck-video') ? { crf: 4, tune: 'stillimage', range: 'tv', matrix: 'bt709',
+      const spec = draft ? null : flag('deck-video') ? { crf: 4, tune: 'stillimage', range: 'tv', matrix: 'bt709',
         x264: 'chroma-qp-offset=-2', profile: 'high', level: '4.1' } : (meta.encode && meta.encode[size]) || null;
       // (or a quality level with x264 tuning: { crf, tune, x264 }, e.g. a dark, dithered film that bands at the default)
+      const audioBitrate = (draft ? meta.encode?.[size] : spec)?.audioBitrate || '192k';
       const rate = flag('lossless') ? ['-crf', '0'] : spec && (spec.crf || (!spec.bitrate && (spec.range !== undefined || spec.matrix !== undefined))) ? ['-crf', String(spec.crf ?? 17), ...(spec.tune ? ['-tune', spec.tune] : []), ...(spec.x264 ? ['-x264-params', spec.x264] : [])] : spec ? ['-profile:v', spec.profile || 'high', '-level:v', String(spec.level || '4.0'), '-b:v', spec.bitrate, '-maxrate', spec.maxrate || spec.bitrate, '-bufsize', spec.bufsize || spec.maxrate || spec.bitrate, ...(spec.minrate ? ['-minrate', spec.minrate] : []), ...(spec.x264 ? ['-x264-params', spec.x264] : [])] : ['-crf', '17'];
       const vf = sub > 1 ? ['-vf', `tmix=frames=${sub},select='eq(mod(n\\,${sub})\\,${sub - 1})',setpts=N/${fps}/TB`] : [];
       // Colour conversion is opt-in: existing films keep the exact filter and encoder arguments.
@@ -294,26 +417,54 @@ try {
         ...(flag('deck-video') ? ['setparams=range=limited:color_primaries=bt709:color_trc=bt709:colorspace=bt709'] : [])].join(',')] : vf;
       const delivery = flag('deck-video') ? ['-profile:v', 'high', '-level:v', '4.1', '-maxrate', '40M', '-bufsize', '40M', '-chroma_sample_location', 'left'] : [];
       const total = Math.round(meta.duration * fps);
+      const [firstFrame, lastFrame] = frameRange || [0, total - 1];
+      if (lastFrame >= total) throw Error(`--frames ends beyond the film (${total} frames)`);
+      let dimensions;
       if (!audioOnly) {
-      const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(fps * sub), '-i', '-', ...filters, '-r', String(fps), '-c:v', 'libx264', ...rate, ...delivery, '-preset', 'slow', ...colour, '-pix_fmt', flag('lossless') ? 'yuv444p' : 'yuv420p', '-movflags', '+faststart', silent], { stdio: ['pipe', 'inherit', 'inherit'] });
-      for (let i = 0; i < total; i++) {
+      const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(fps * sub), ...(caches.length ? ['-threads','1'] : []), '-i', '-', ...filters, '-r', String(fps), '-c:v', 'libx264', ...(caches.length ? ['-threads','1','-rc-lookahead','8'] : []), ...rate, ...delivery, '-preset', draft ? 'ultrafast' : caches.length ? 'fast' : 'slow', ...colour, '-pix_fmt', flag('lossless') ? 'yuv444p' : 'yuv420p', '-movflags', '+faststart', silent], { stdio: ['pipe', 'inherit', 'inherit'] });
+      let encoderError;
+      ff.on('error',e=>{encoderError=e;});ff.stdin.on('error',e=>{encoderError=e;});
+      const closed=new Promise(resolve=>ff.on('close',resolve));
+      const encoded=closed.then(code=>{if(encoderError)throw encoderError;if(code!==0)throw Error(`ffmpeg exited ${code}`);});
+      encoded.catch(()=>{}); // rejection is handled below, including during pipe backpressure
+      try {
+      for (let i = firstFrame; i <= lastFrame; i++) {
         for (let k = 0; k < sub; k++) {
           const t0 = i / fps;
           // shutter: half a frame by default (180°); a film can ask for more in places: shutters [[from, to, fraction]],
           // and for more samples there ([from, to, fraction, 2]: each sub-frame the average of 2 spread across its share),
           // where a move is so fast that the sub-frames would show as separate copies
-          const [, , sh, more = 1] = meta.shutters.find(([a, b2]) => t0 >= a && t0 < b2) || [0, 0, 0.5, 1];
+          const [, , sh, fullMore = 1] = meta.shutters.find(([a, b2]) => t0 >= a && t0 < b2) || [0, 0, 0.5, 1];
+          const more = Math.max(1, Math.ceil(fullMore * (draft ? DRAFT_SAMPLE_FACTOR : 1)));
           const ts = Array.from({ length: sub > 1 ? more : 1 }, (_, j) => {
             const t = (i + (sub > 1 ? ((k + j / more) / sub) * sh : 0)) / fps;
             // a sub-frame past a hard cut would blend two shots: hold it just before the cut
             const cut = meta.cuts.find((c) => c > t0 && c <= t);
             return cut !== undefined ? cut - 1e-4 : t;
           });
-          if (!ff.stdin.write(png(ts.length > 1 ? await frameAverage(ts) : await frame(ts[0])))) await new Promise((r) => ff.stdin.once('drain', r));
+          if(encoderError)throw encoderError;
+          if (ff.exitCode !== null || ff.stdin.destroyed) { await encoded; throw Error('Encoder closed early'); }
+          const data = png(ts.length > 1 ? await frameAverage(ts) : await frame(ts[0]));
+          // Read the first PNG's IHDR instead of seeking an extra frame or guessing
+          // from the requested size (older films may fall back to their own size).
+          dimensions ||= [data.readUInt32BE(16), data.readUInt32BE(20)];
+          if (!ff.stdin.write(data)) await Promise.race([new Promise(r => ff.stdin.once('drain', r)), encoded.then(() => { throw Error('Encoder closed early'); })]);
         }
       }
       ff.stdin.end();
-      await new Promise((r) => ff.on('close', r));
+      await encoded;
+      } finally {
+        // A failed asset/window preparation must not leave an encoder holding
+        // stdin open and keep the otherwise failed render alive indefinitely.
+        ff.stdin.destroy();ff.kill();await closed;
+      }
+      }
+      const renderReport = { quality, size, fps, dimensions, firstFrame, lastFrame, frames: lastFrame - firstFrame + 1, totalFrames: total, blur: sub, gpu, prepareSeconds, videoSeconds: (performance.now() - videoStarted) / 1000, seconds: (performance.now() - startedAt) / 1000 };
+      if (frameRange) {
+        await rename(silent, file);
+        await writeFile(file + '.render.json', JSON.stringify(renderReport, null, 2) + '\n');
+        console.log(`wrote ${file} (${renderReport.frames} frames at original times ${firstFrame / fps}–${(lastFrame + 1) / fps} s; splice with --at ${firstFrame})`);
+        continue;
       }
       // audio alone: a silent source of the film's length stands in for the video, so the inputs keep their places
       const base = audioOnly ? ['-f', 'lavfi', '-t', String(meta.duration), '-i', 'anullsrc=r=48000:cl=stereo'] : ['-i', silent];
@@ -338,6 +489,14 @@ try {
         // under music the effects sit back: at full level against a song they were "too loud, distracting" (the
         // founder, 2026-10-24), so 6 dB down under a song and under the score (which had them at 0.55 already)
         tracks.push([sfxFile, song ? SFX_UNDER_MUSIC : tracks.length ? 0.55 * SFX_UNDER_MUSIC : 1]);
+      }
+      // The last streamed cut has no more visual work. Release its browser
+      // before decoding/mixing full song stems, so their memory does not add
+      // to the video window and live device buffers. Stress still needs it.
+      if (song && caches.length && size === sizes.at(-1) && !flag('stress')) {
+        streamedStats = await page.evaluate(() => window.template.frameStats?.() || null);
+        await closeChrome(browser);
+        browserClosed = true;
       }
       if (song) {
         const num = (k) => (opt(k) === undefined ? undefined : Number(opt(k)));
@@ -377,11 +536,12 @@ try {
         const graph = mix(`loudnorm=${target}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true`);
         if (audioOnly) await run('ffmpeg', ['-loglevel', 'error', '-y', ...base, ...inputs, '-filter_complex', graph, '-map', '[a]', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', file]);
         else {
-          await run('ffmpeg', ['-loglevel', 'error', '-y', '-i', silent, ...inputs, '-filter_complex', graph, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', (spec && spec.audioBitrate) || '192k', '-movflags', '+faststart', file]);
+          await run('ffmpeg', ['-loglevel', 'error', '-y', '-i', silent, ...inputs, '-filter_complex', graph, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', audioBitrate, '-movflags', '+faststart', file]);
           await rm(silent);
         }
       } else if (audioOnly) throw new Error('--audio-only needs --music (and a score in window.template.music) or --audio');
-      else await run('mv', [silent, file]);
+      else await rename(silent, file);
+      await writeFile(file + '.render.json', JSON.stringify({ ...renderReport, seconds: (performance.now() - startedAt) / 1000 }, null, 2) + '\n');
       console.log(audioOnly ? `wrote ${file} (${meta.duration} s of sound)` : `wrote ${file} (${total} frames${tracks.length ? ', with sound' : ''})`);
     }
 
@@ -395,13 +555,18 @@ try {
         cases.long[f.id] = longText(was, f.maxLength || Math.round(was.length * 1.5));
         cases.short[f.id] = shortText(was);
       }
-      const times = (meta.keyTimes.length ? meta.keyTimes : range(1)).filter(t=>t>=0&&t<meta.duration);
+      const times = [...new Map((meta.keyTimes.length ? meta.keyTimes : range(1)).filter(t=>t>=0&&t<meta.duration).map(t=>[motionKey(t),t])).values()];
       const boundaryFrames = await page.evaluate(size=>window.template.boundaryFrames?.(size)||[],size);
       const strict = await page.evaluate(()=>typeof window.template.boundaryFrames==='function' && typeof window.template.frameAudit==='function');
       // Keep sheets sparse and legible, but measure every boundary frame plus
       // neighbours. Never infer a travelling layer from one sampled still.
-      const inspected = [...new Set([...times,...boundaryFrames.map(f=>f/fps)])].filter(t=>t>=0&&t<meta.duration).sort((a,b)=>a-b);
+      const planned = [...new Set([...times,...boundaryFrames.map(f=>f/fps)])].filter(t=>t>=0&&t<meta.duration).sort((a,b)=>a-b);
+      const inStressWindow = t => !stressWindow || (t >= stressWindow[0] - 1e-9 && t < stressWindow[1] - 1e-9);
+      const inspected = planned.filter(inStressWindow);
+      if (!inspected.length) throw Error(`No stress targets for ${size} in the requested window`);
       const sampleTimes = [...new Map(inspected.flatMap(t=>[-2,-1,0,1,2].map(f=>t+f/fps)).filter(t=>t>=0&&t<meta.duration).map(t=>[motionKey(t),t])).values()].sort((a,b)=>a-b);
+      const sheetTimes = times.filter(inStressWindow);
+      if (!sheetTimes.length) sheetTimes.push(inspected[0]);
       const sdir = path.join(outDir, 'stress');
       await mkdir(sdir, { recursive: true });
       let measured = 0;
@@ -422,10 +587,12 @@ try {
         await mkdir(d, { recursive: true });
         const words = fields.map((f) => String(v[f.id] ?? '')).filter(Boolean);
         const seen = new Map();
-        const shots = new Map(), sheetIndex = new Map(times.map((t,i)=>[motionKey(t),i]));
+        const shots = new Map(), sheetIndex = new Map(sheetTimes.map((t,i)=>[motionKey(t),i]));
         for (const t of sampleTimes) {
+          await collectFrameMemory();
           const index = sheetIndex.get(motionKey(t));
-          const shot = await page.evaluate((t,v,sheet) => {
+          const shot = await page.evaluate(async (t,v,sheet) => {
+            await window.template.prepareFrame?.([t], v);
             const rec=window.__texts; rec.log=[]; rec.surfaces=[]; rec.serial=0; rec.on=true;
             let c;
             try { c=window.template.seek(t,v); } finally { rec.on=false; }
@@ -453,7 +620,9 @@ try {
           }
         }
         await tile(d, size === '9:16' ? 220 : 384, size === '9:16' ? 8 : 5, path.join(sdir, `${name}-${label}-sheet.png`));
-        console.log(`${size} ${label} stress: measured ${inspected.length} times${strict?' including consecutive boundary frames':''}`);
+        stressCoverage.push({size,case:label,cases:Object.keys(cases),sizes,fps,duration:meta.duration,window:stressWindow,plannedTimes:planned,inspectedTimes:inspected,sampleTimes,sheetTimes});
+        await writeFile(path.join(sdir,'coverage.json'),JSON.stringify(stressCoverage,null,2));
+        console.log(`${size} ${label} stress: measured ${inspected.length} times${stressWindow?` in [${stressWindow.join(', ')})`:''}${strict?' including consecutive boundary frames':''}`);
       }
       if (!measured) console.log(`${size} stress: no text measured (the film draws its words elsewhere); judge the sheets by eye`);
       await page.evaluate((v) => window.template.prepare(v), values);
@@ -464,16 +633,21 @@ try {
     const fails = stressProblems.filter((p) => p.fails).length, travel = stressProblems.filter(p=>p.kind==='travel').length, notes = stressProblems.length - fails - travel;
     const where = path.join(outDir, 'stress');
     const noted = travel || notes ? `; ${travel} whole-layer travel notes, ${notes} other text notes for the reviewer in ${path.join(where, 'report.json')}` : '';
-    console.log(fails ? `stress: FAIL (${fails} problems the words cause${noted})` : `stress: pass (${sizes.join(', ')}; defaults, long and short words${noted})`);
+    console.log(fails ? `stress: FAIL (${fails} problems the words cause${noted})` : `stress: pass (${sizes.join(', ')}; defaults, long and short words${stressWindow?`; window [${stressWindow.join(', ')}) only`:''}${noted})`);
     console.log(`stress sheets for the reviewer: ${where}`);
     if (fails) failed = true;
   }
+  if (caches.length) await writeFile(path.join(outDir,'video-frames.json'), JSON.stringify({caches,stats:browserClosed ? streamedStats : await page.evaluate(()=>window.template.frameStats?.()||null)},null,2));
 } catch (e) {
   console.error(e.message);
   failed = true;
 } finally {
-  await browser.close();
+  await Promise.allSettled([...frameCollectors.values()].map(({session})=>session.detach()));
+  if (!browserClosed) await closeChrome(browser);
   server.close();
+  // Aborted asset streams can leave an active HTTP socket after Chrome has
+  // exited. No frame work remains; don't wait for its five-minute timeout.
+  server.closeAllConnections();
   if (failed) process.exitCode = 1;
 }
 

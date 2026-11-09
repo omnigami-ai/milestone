@@ -15,8 +15,9 @@ For Japanese, Korean or Chinese product pages, keep the copy in that language an
 You make a 16-second film for a number the product has reached. It starts
 with the one action the number counts, done once on the product's real
 screen ("One tap." "Water Monty": his ring fills, "One plant, watered."),
-then that one result lifts out of the app and multiplies, from a handful to
-thousands, as a counter rolls from 1 to the milestone ("1,000,000 plants
+then that one result lifts out of the app and multiplies into a field with
+depth: a handful stays recognisable as the many soften into bokeh, while a
+counter rolls from 1 to the milestone ("1,000,000 plants
 watered on time."). "Thank you." Then the field of results closes into the
 app's icon and the end card.
 
@@ -51,14 +52,14 @@ Read `style.md` before you start and `critique.md` before you judge.
    ```
 5. **Adapt `film/index.html`:**
    - `DEFAULTS` and `FIELDS`: the lines, the number (digits and separators: the counter rolls to it), what it counts, the thanks, the name and tagline.
-   - `PLANTS` and `plantAt`: the kinds of result and how they mix in the field (no two the same side by side). `portrait()` draws one, round, from a pre-scaled copy; make it the result's own shape.
+   - `PLANTS` and `plantAt`: the kinds of real result and their initial cells. `DRIFT` authors dispersed, uneven positions (kind index, position, size, depth); `makeField()` adds seeded distant results and maps each subject to a near cell of the same kind. `travelAt()` gives every subject its own easing and slight timing offset across the whole pull-back and count; `FIELD_END` keeps every arrival after both finish. Keep optical softening separate from travel and the very slow independent drift through the hold. `portrait()` and `fieldSprite()` retain the result's own shape: adapt both if it is not round. Keep the original result in focus; depth softens the others through one shared lens. Never replace the distance with a tiled sheet.
    - `pageAt`, `ring`, `fillAt`, `SCR.rects.plant`: which capture shows when, the result appearing as the app draws it (its geometry and colours, from the product's own code or styles), and where the result and the button are.
    - colour and type: `GROUND`, `CREAM`, `SPROUT`, `MOSS`, the product's faces, and `MARK` (its mark as a `Path2D`) for the icon.
-   Keep the motion code: the tap and its press, the push, the lift, the field's growth (one ring of results at a time) and zoom, the counter, the close.
+   Keep the motion code: the tap and its press, the push, the lift, the near field's spring arrivals, the continuous melt into irregular depth, the counter, and the square of depth closing into the icon. Keep subject identity through the melt and close, the common light and focus equation, and the text above all depth treatment.
 6. **Check:** `node scripts/compare.mjs reference film out/compare-9x16.png --size 9:16`, `node scripts/render.mjs film --size 9:16 --stress` and `--phone`. Fix anything that fails `critique.md`.
-7. **Check the motion** on strips of consecutive frames from the MP4 (step 9): the tap and the fill (1.9–3.3), the lift (4.4–5.7), the field and counter (5.1–8.0), the close (10.7–12.0). The lifted result is never shown twice, and the counter is readable against the field at every frame. Then get a fresh judgement, from a sub-agent with only `critique.md` and the images if you can start one.
-8. **Check it's repeatable:** `node scripts/render.mjs film --size 9:16 --check`.
-9. **Render.** `node scripts/render.mjs film --size 9:16 --video --blur 4 --audio music/song.mp3 --sound --poster 9.3` writes `out/9x16.mp4`, 60 fps, with the skill's song and effects, about −14 LUFS, and a poster. The song (`music/song.mp3`: bright, uplifting electro-pop at 120 BPM) is fitted to the film: it starts on a bar line and, near the end, lands one hit, where its drums stop and the rest closes and fades (from its stems in `music/song-stems/`). `--from <seconds>` starts at another of its distinct 8-bar sections (the song is about two minutes long). `--music` gives the synthesised score instead; the user's own song works with `--audio their.wav`.
+7. **Check the motion** on strips of consecutive frames from the MP4 (step 9): the tap and the fill (2.4–3.9), the lift (5.4–6.75), then the entire field travel, counter, hold and close (6.5–13.92, f390–835). Every subject keeps moving gradually until after the pull and count; none snaps into an early formation, and a very slow drift continues through the hold. Review consecutive frames at full 1080 × 1920 as well as phone width. The lifted result is never shown twice, and the counter is readable against the field at every frame. Then get a fresh judgement, from a sub-agent with only `critique.md` and the images if you can start one.
+8. **Check it's repeatable:** `node scripts/render.mjs film --size 9:16 --check`, then `--check-fresh`. Every helper is CPU-backed; warm image paths in `prepare()` so first draws agree with later draws.
+9. **Render.** `node scripts/render.mjs film --size 9:16 --video --blur 4 --audio music/song.mp3 --bpm 120 --from 4 --sound --poster 9.3` writes `out/9x16.mp4`, 60 fps, with the skill's song and effects, about −14 LUFS, and a poster. The song (`music/song.mp3`: bright, uplifting electro-pop at 120 BPM) is fitted to the film: it starts on a bar line and, near the end, lands one hit, where its drums stop and the rest closes and fades (from its stems in `music/song-stems/`). `--from <seconds>` starts at another of its distinct 8-bar sections (the song is about two minutes long). `--music` gives the synthesised score instead; the user's own song works with `--audio their.wav`.
 10. **Write `milestone-film/README.md`** and `out/CAPTION.md` (under 280 characters, the product's words, its URL; the real number and what it counts).
 11. **Report:** the MP4, the poster, the caption, the story and state list, the scores, and the one change that would improve it most.
 

@@ -10,7 +10,7 @@ Look at: the key-frame sheet (`node scripts/render.mjs film --size 9:16 --times 
 2. **Truth:** the number is the user's, exactly; the action, its result and the field are the product's own, captured.
 3. **One, then many:** the single action reads before anything multiplies; the field is clearly made of that result.
 4. **Readability:** every line read before the next; the counter readable over the field at every frame; nothing under 28 px on the phone sheet.
-5. **Motion:** the result fills smoothly, never in steps; the lift has depth (the result forward, the phone back out of focus), never a flat cut-out sliding; the pull-back feels like a camera (zoom blur, soft edges); the close one move; the result never shown twice; nothing pops in a single frame.
+5. **Motion:** the result fills smoothly, never in steps; the lift has depth (the result forward, the phone back out of focus), never a flat cut-out sliding; the near grid travels gradually into irregular depth across the whole pull and count, each subject with its own easing and timing; all arrive after the count and pull finish, then drift very slowly through the hold (inspect every frame from f390 through the close at f835). One focus plane, intermediate softness and common light; no sharp sticker layer over blur, moiré, mask edges or one-frame pops; the same square of depth closes into the icon in one move (f765–831); the result never shown twice; nothing pops in a single frame.
 6. **Rhythm and sound:** the tap, the landing and the mark on beats; ticks quicken with the counter; nothing harsh.
 7. **Brand:** the product's ground, type, accent and mark.
 
@@ -20,7 +20,10 @@ Look at: the key-frame sheet (`node scripts/render.mjs film --size 9:16 --times 
 - **Type centred in its container** (pills, buttons, chips, badges, a word beside a mark): the capitals sit on the container's centre line, measured, not by eye. Words that ride high are the usual fault (textBaseline 'middle' and CSS line boxes both centre the font's em box, not the letters); draw with `kit.centreText`, and in HTML use `text-box: trim-both cap alphabetic` with equal padding. The quick test fails canvas text set with 'middle'; captured screens and HTML are checked on the stills.
 - **The film's own shapes, finished:** every click has a press state on its visual onset (what's pressed sinks a few percent and lights or darkens, then comes back), and a held control shows it's held; apertures and reveals are clean circles or the product's own shapes, never blades or drawn lines; a shape that becomes another does it in one continuous move, not a chain of in-between shapes; a pulse is one thin ring that thins as it grows; nothing (a check, a label, an icon) vanishes or appears in a single frame at a hand-off: it moves, shrinks or is covered. Check each on a strip of consecutive frames from the MP4.
 - a second copy of the result while it lifts (on the page and in the field);
-- a field of square tiles when the result is round (or the reverse): the capture's background must not show;
+- square capture backgrounds around round results (or the reverse): keep the product's own result shape, including soft bokeh edges; a rectangular capture edge must never surface as it moves or loses focus;
+- a drift that regenerates, changes subject identity, becomes a flat dot pattern or changes density between shots; compare f456 and f600 at full size and phone width;
+- neighbours that reach their new positions early and sit still during the count; a tight formation instead of dispersed, uneven spacing; a frozen hold or movement that competes with the number;
+- a counter treated by the depth blur: check the number mid-roll as well as at its landing;
 - a counter that jumps (it must pass through every order of magnitude) or ends on anything but the exact number.
 
 For each issue write the time, what's wrong and the exact fix. Fix the worst three, review again, score again. After three rounds, report what remains.
